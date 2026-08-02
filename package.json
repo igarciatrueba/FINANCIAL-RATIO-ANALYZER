@@ -1,6 +1,6 @@
 {
   "name": "financial-ratio-analyzer",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Interactive financial health assessment and scenario-analysis platform for simplified corporate financial statements.",
   "private": true,
   "scripts": {

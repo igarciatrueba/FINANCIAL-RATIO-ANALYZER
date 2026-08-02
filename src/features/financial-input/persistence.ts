@@ -30,9 +30,30 @@ function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
-function isStringRecord(value: unknown): value is Record<string, string> {
-  return isRecord(value) && Object.values(value).every(isString);
+function hasExactStringKeys(value: unknown, keys: readonly string[]) {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const actualKeys = Object.keys(value);
+
+  return actualKeys.length === keys.length && keys.every((key) => isString(value[key]));
 }
+
+const companyKeys = ["name", "industry", "currency"] as const;
+const incomeStatementKeys = ["revenue", "costOfGoodsSold", "ebit", "interestExpense", "netIncome"] as const;
+const balanceSheetKeys = [
+  "cash",
+  "accountsReceivable",
+  "inventory",
+  "currentAssets",
+  "totalAssets",
+  "currentLiabilities",
+  "totalDebt",
+  "equity",
+] as const;
+const cashFlowKeys = ["operatingCashFlow", "capitalExpenditure"] as const;
+const workingCapitalKeys = ["averageInventory", "averageReceivables", "averagePayables"] as const;
 
 function isFormPeriod(value: unknown) {
   if (!isRecord(value)) {
@@ -41,10 +62,10 @@ function isFormPeriod(value: unknown) {
 
   return (
     isString(value.year) &&
-    isStringRecord(value.incomeStatement) &&
-    isStringRecord(value.balanceSheet) &&
-    isStringRecord(value.cashFlow) &&
-    isStringRecord(value.workingCapital)
+    hasExactStringKeys(value.incomeStatement, incomeStatementKeys) &&
+    hasExactStringKeys(value.balanceSheet, balanceSheetKeys) &&
+    hasExactStringKeys(value.cashFlow, cashFlowKeys) &&
+    hasExactStringKeys(value.workingCapital, workingCapitalKeys)
   );
 }
 
@@ -54,9 +75,7 @@ function isFormValues(value: unknown): value is FinancialInputFormValues {
   }
 
   return (
-    isString(value.company.name) &&
-    isString(value.company.industry) &&
-    isString(value.company.currency) &&
+    hasExactStringKeys(value.company, companyKeys) &&
     value.periods.every(isFormPeriod)
   );
 }

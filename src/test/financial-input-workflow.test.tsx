@@ -1,9 +1,9 @@
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AnalysisConfirmation } from "@/features/financial-input/analysis-confirmation";
-import { ACTIVE_ANALYSIS_STORAGE_KEY } from "@/features/financial-input/persistence";
+import { ACTIVE_ANALYSIS_STORAGE_KEY, INPUT_DRAFT_STORAGE_KEY } from "@/features/financial-input/persistence";
 import { FinancialInputWorkflow } from "@/features/financial-input/workflow";
 
 const pushMock = vi.fn();
@@ -19,6 +19,10 @@ describe("Phase 4 financial input workflow", () => {
     pushMock.mockReset();
     window.localStorage.clear();
     window.sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("renders a top horizontal workflow bar with compact progress and free step navigation", async () => {
@@ -129,6 +133,22 @@ describe("Phase 4 financial input workflow", () => {
     expect(screen.getByRole("button", { name: /load novatech solutions/i })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("button", { name: /load atlas manufacturing group/i })).toHaveFocus();
+  });
+
+  it("does not recreate a local draft after reset autosave debounce elapses", async () => {
+    vi.useFakeTimers();
+    render(<FinancialInputWorkflow />);
+
+    fireEvent.click(screen.getByRole("button", { name: /load novatech solutions/i }));
+    await vi.advanceTimersByTimeAsync(600);
+    expect(window.localStorage.getItem(INPUT_DRAFT_STORAGE_KEY)).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /reset form/i }));
+    expect(window.localStorage.getItem(INPUT_DRAFT_STORAGE_KEY)).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(600);
+    expect(window.localStorage.getItem(INPUT_DRAFT_STORAGE_KEY)).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("Local draft cleared");
   });
 });
 

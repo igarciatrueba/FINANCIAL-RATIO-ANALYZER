@@ -466,16 +466,15 @@ function ReviewStep({
 
 export function FinancialInputWorkflow() {
   const router = useRouter();
-  const [initialDraft] = useState(readInitialDraft);
-  const [currentStep, setCurrentStep] = useState<WorkflowStepId>(initialDraft?.activeStep ?? "company");
+  const suppressNextAutosaveRef = useRef(false);
+  const [autosaveReady, setAutosaveReady] = useState(false);
+  const [currentStep, setCurrentStep] = useState<WorkflowStepId>("company");
   const [completedSteps, setCompletedSteps] = useState<Set<WorkflowStepId>>(new Set());
   const [hasLoadedDemo, setHasLoadedDemo] = useState(false);
-  const [draftStatus, setDraftStatus] = useState(
-    initialDraft ? "Draft restored from this browser" : "Local draft only"
-  );
+  const [draftStatus, setDraftStatus] = useState("Local draft only");
 
   const form = useForm<FinancialInputFormValues>({
-    defaultValues: initialDraft?.values ?? createEmptyFinancialInputForm(),
+    defaultValues: createEmptyFinancialInputForm(),
     mode: "onBlur",
   });
   const { control, formState, getValues, register, reset, trigger } = form;
@@ -492,14 +491,39 @@ export function FinancialInputWorkflow() {
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
+      const recovered = readInitialDraft();
+
+      if (recovered) {
+        reset(recovered.values);
+        setCurrentStep(recovered.activeStep);
+        setDraftStatus("Draft restored from this browser");
+        setAutosaveReady(true);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [reset]);
+
+  useEffect(() => {
+    if (!autosaveReady || suppressNextAutosaveRef.current) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
       window.localStorage.setItem(INPUT_DRAFT_STORAGE_KEY, serializeInputDraft(buildInputDraft(getValues(), currentStep)));
       setDraftStatus("Draft saved locally");
     }, 500);
 
     return () => window.clearTimeout(timeout);
-  }, [currentStep, getValues, watchedValues]);
+  }, [autosaveReady, currentStep, getValues, watchedValues]);
+
+  function resumeAutosave() {
+    suppressNextAutosaveRef.current = false;
+    setAutosaveReady(true);
+  }
 
   async function goToStep(step: WorkflowStepId) {
+    resumeAutosave();
     if (step === "review") {
       await trigger();
     }
@@ -507,6 +531,7 @@ export function FinancialInputWorkflow() {
   }
 
   async function saveAndContinue() {
+    resumeAutosave();
     const paths = stepFieldPaths(currentStep);
     const valid = paths.length === 0 ? true : await trigger(paths, { shouldFocus: true });
 
@@ -523,10 +548,12 @@ export function FinancialInputWorkflow() {
   }
 
   function goBack() {
+    resumeAutosave();
     setCurrentStep(getPreviousStep(currentStep));
   }
 
   function loadDemo(id: DemoCompanyId) {
+    resumeAutosave();
     reset(financialInputToFormValues(cloneDemoCompany(id)));
     setHasLoadedDemo(true);
     setCompletedSteps(new Set(["company"]));
@@ -535,6 +562,7 @@ export function FinancialInputWorkflow() {
   }
 
   function resetForm() {
+    suppressNextAutosaveRef.current = true;
     reset(createEmptyFinancialInputForm());
     setHasLoadedDemo(false);
     setCompletedSteps(new Set());
@@ -603,7 +631,7 @@ export function FinancialInputWorkflow() {
         onStepChange={goToStep}
       />
 
-      <form className="grid gap-6" noValidate>
+      <form className="grid gap-6" noValidate onChange={resumeAutosave}>
         {currentStep === "company" ? <CompanyStep errors={formState.errors} register={register} /> : null}
         {currentStep !== "company" && currentStep !== "review" ? (
           <FinancialSectionStep

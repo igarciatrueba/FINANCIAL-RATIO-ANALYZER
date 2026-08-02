@@ -179,4 +179,19 @@ describe("Phase 4 demo companies and persistence", () => {
     expect(recoverInputDraft("{")).toBeNull();
     expect(recoverInputDraft(JSON.stringify({ schemaVersion: 999 }))).toBeNull();
   });
+
+  it("discards drafts with incomplete nested financial statement objects", () => {
+    const values = financialInputToFormValues(cloneDemoCompany("novatech-solutions"));
+    const missingRevenue = buildInputDraft(values, "income-statement");
+    delete (missingRevenue.values.periods[0].incomeStatement as Partial<Record<string, string>>).revenue;
+
+    const emptyBalanceSheet = buildInputDraft(
+      financialInputToFormValues(cloneDemoCompany("atlas-manufacturing-group")),
+      "balance-sheet"
+    );
+    emptyBalanceSheet.values.periods[1].balanceSheet = {} as never;
+
+    expect(recoverInputDraft(serializeInputDraft(missingRevenue))).toBeNull();
+    expect(recoverInputDraft(serializeInputDraft(emptyBalanceSheet))).toBeNull();
+  });
 });

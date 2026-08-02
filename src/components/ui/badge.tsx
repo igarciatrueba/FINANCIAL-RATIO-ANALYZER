@@ -9,6 +9,9 @@ const badgeVariants = cva(
       variant: {
         default: "border-border bg-surface text-neutral-300",
         info: "border-information/40 bg-information/10 text-information",
+        success: "border-success/40 bg-success/10 text-success",
+        warning: "border-warning/40 bg-warning/10 text-warning",
+        danger: "border-danger/40 bg-danger/10 text-danger",
       },
     },
     defaultVariants: {

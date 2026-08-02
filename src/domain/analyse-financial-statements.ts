@@ -2,12 +2,13 @@ import type { FinancialAnalysisInput, FinancialAnalysisResult, PeriodAnalysis, S
 import { calculateDuPont } from "@/domain/dupont";
 import { calculatePeriodRatios } from "@/domain/ratios";
 import { generateDeterministicInsights, selectPrincipalInsights } from "@/domain/insights";
-import { calculateAnalyticalCoverage, calculateScoreHistory, defaultScoringConfig } from "@/domain/scoring";
+import { assertValidScoringConfig, calculateAnalyticalCoverage, calculateScoreHistory, defaultScoringConfig } from "@/domain/scoring";
 
 export function analyseFinancialStatements(
   input: FinancialAnalysisInput,
   config: ScoringConfiguration = defaultScoringConfig
 ): FinancialAnalysisResult {
+  assertValidScoringConfig(config);
   const ratioPeriods = input.periods.map((period, index) => calculatePeriodRatios(period, input.periods[index - 1]));
   const scoreHistory = calculateScoreHistory(ratioPeriods, config);
   const periods: PeriodAnalysis[] = input.periods.map((period, index) => ({

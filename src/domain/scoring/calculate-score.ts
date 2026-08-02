@@ -23,6 +23,10 @@ function sum(values: number[]) {
   return values.reduce((total, value) => total + value, 0);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function clipScore(score: number) {
   if (!Number.isFinite(score)) {
     return 0;
@@ -36,27 +40,106 @@ function ratioCategoryWeight(dimension: RatioCategory, config: ScoringConfigurat
 
 export function validateScoringConfig(config: ScoringConfiguration): ScoringConfigurationValidationResult {
   const issues: string[] = [];
-  const dimensionWeightTotal = sum(Object.values(config.dimensionWeights));
+  const candidate = config as unknown;
 
-  if (Math.abs(dimensionWeightTotal - 1) > EPSILON) {
-    issues.push(`Dimension weights must total 1; received ${dimensionWeightTotal}.`);
+  if (!isRecord(candidate)) {
+    return {
+      valid: false,
+      issues: ["Scoring configuration must be an object."],
+    };
   }
 
-  for (const threshold of Object.values(config.thresholds)) {
-    if (!thresholdModes.has(threshold.mode)) {
-      issues.push(`Threshold mode for ${threshold.metricId} is invalid.`);
+  const dimensionWeights = isRecord(candidate.dimensionWeights) ? candidate.dimensionWeights : null;
+  const metricWeightsByDimension = isRecord(candidate.metricWeights) ? candidate.metricWeights : null;
+  const thresholds = isRecord(candidate.thresholds) ? candidate.thresholds : null;
+
+  if (!dimensionWeights) {
+    issues.push("dimensionWeights must be an object.");
+  }
+  if (!metricWeightsByDimension) {
+    issues.push("metricWeights must be an object.");
+  }
+  if (!thresholds) {
+    issues.push("thresholds must be an object.");
+  }
+
+  const dimensionWeightValues: number[] = [];
+  if (dimensionWeights) {
+    for (const key of Object.keys(dimensionWeights)) {
+      if (!dimensionOrder.includes(key as RatioCategory)) {
+        issues.push(`Unexpected dimension weight configured: ${key}.`);
+      }
     }
 
-    for (let index = 0; index < threshold.anchors.length; index += 1) {
-      const anchor = threshold.anchors[index];
-      if (!Number.isFinite(anchor.value)) {
-        issues.push(`Anchor value for ${threshold.metricId} must be finite.`);
+    for (const dimension of dimensionOrder) {
+      const weight = dimensionWeights[dimension];
+      if (typeof weight !== "number" || !Number.isFinite(weight) || weight < 0) {
+        issues.push(`Dimension weight for ${dimension} must be a finite non-negative number.`);
+      } else {
+        dimensionWeightValues.push(weight);
       }
-      if (!Number.isFinite(anchor.score) || anchor.score < 0 || anchor.score > 100) {
-        issues.push(`Anchor scores for ${threshold.metricId} must be between 0 and 100.`);
+    }
+
+    if (dimensionWeightValues.length === dimensionOrder.length) {
+      const dimensionWeightTotal = sum(dimensionWeightValues);
+      if (Math.abs(dimensionWeightTotal - 1) > EPSILON) {
+        issues.push(`Dimension weights must total 1; received ${dimensionWeightTotal}.`);
       }
-      if (index > 0 && anchor.value <= threshold.anchors[index - 1].value) {
-        issues.push(`Anchors for ${threshold.metricId} must be ordered by value.`);
+    }
+  }
+
+  if (thresholds) {
+    for (const [thresholdKey, thresholdValue] of Object.entries(thresholds)) {
+      if (!isRecord(thresholdValue)) {
+        issues.push(`Threshold ${thresholdKey} must be an object.`);
+        continue;
+      }
+
+      const metricId = typeof thresholdValue.metricId === "string" ? thresholdValue.metricId : thresholdKey;
+      if (typeof thresholdValue.metricId !== "string") {
+        issues.push(`Threshold ${thresholdKey} must define a metricId.`);
+      } else if (thresholdValue.metricId !== thresholdKey) {
+        issues.push(`Threshold ${thresholdKey} metricId must match its configuration key.`);
+      }
+
+      if (typeof thresholdValue.mode !== "string" || !thresholdModes.has(thresholdValue.mode)) {
+        issues.push(`Threshold mode for ${metricId} is invalid.`);
+      }
+
+      if (!Array.isArray(thresholdValue.anchors)) {
+        issues.push(`Threshold ${metricId} must define an anchor array.`);
+        continue;
+      }
+
+      if (thresholdValue.anchors.length < 2) {
+        issues.push(`Threshold ${metricId} must define at least two anchors.`);
+      }
+
+      for (let index = 0; index < thresholdValue.anchors.length; index += 1) {
+        const anchor = thresholdValue.anchors[index];
+        const previousAnchor = thresholdValue.anchors[index - 1];
+        if (!isRecord(anchor)) {
+          issues.push(`Anchor ${index} for ${metricId} must be an object.`);
+          continue;
+        }
+
+        if (typeof anchor.value !== "number" || !Number.isFinite(anchor.value)) {
+          issues.push(`Anchor value for ${metricId} must be finite.`);
+        }
+        if (typeof anchor.score !== "number" || !Number.isFinite(anchor.score) || anchor.score < 0 || anchor.score > 100) {
+          issues.push(`Anchor scores for ${metricId} must be between 0 and 100.`);
+        }
+        if (
+          index > 0 &&
+          isRecord(previousAnchor) &&
+          typeof anchor.value === "number" &&
+          Number.isFinite(anchor.value) &&
+          typeof previousAnchor.value === "number" &&
+          Number.isFinite(previousAnchor.value) &&
+          anchor.value <= previousAnchor.value
+        ) {
+          issues.push(`Anchors for ${metricId} must be ordered by value.`);
+        }
       }
     }
   }
@@ -64,15 +147,24 @@ export function validateScoringConfig(config: ScoringConfiguration): ScoringConf
   const seenMetricIds = new Set<string>();
 
   for (const dimension of dimensionOrder) {
-    const metricWeights = config.metricWeights[dimension] ?? {};
-    const metricIds = Object.keys(metricWeights);
-    const metricWeightTotal = sum(Object.values(metricWeights).filter((value): value is number => typeof value === "number"));
-
-    if (Math.abs(metricWeightTotal - 1) > EPSILON) {
-      issues.push(`Metric weights for ${dimension} must total 1; received ${metricWeightTotal}.`);
+    const metricWeightsCandidate = metricWeightsByDimension?.[dimension];
+    if (!isRecord(metricWeightsCandidate)) {
+      issues.push(`Metric weights for ${dimension} must be an object.`);
+      continue;
     }
 
+    const metricWeights = metricWeightsCandidate;
+    const metricIds = Object.keys(metricWeights);
+    const metricWeightValues: number[] = [];
+
     for (const metricId of metricIds) {
+      const metricWeight = metricWeights[metricId];
+      if (typeof metricWeight !== "number" || !Number.isFinite(metricWeight) || metricWeight < 0) {
+        issues.push(`Metric weight for ${metricId} in ${dimension} must be a finite non-negative number.`);
+      } else {
+        metricWeightValues.push(metricWeight);
+      }
+
       if (seenMetricIds.has(metricId)) {
         issues.push(`Duplicate scored metric configured: ${metricId}.`);
       }
@@ -89,31 +181,79 @@ export function validateScoringConfig(config: ScoringConfiguration): ScoringConf
       if (!definition.scoreEligible) {
         issues.push(`Configured metric ${metricId} is not score eligible.`);
       }
-      if (!config.thresholds[metricId]) {
+      if (!thresholds?.[metricId]) {
         issues.push(`Configured metric ${metricId} has no threshold configuration.`);
+      }
+    }
+
+    if (metricWeightValues.length === metricIds.length) {
+      const metricWeightTotal = sum(metricWeightValues);
+      if (Math.abs(metricWeightTotal - 1) > EPSILON) {
+        issues.push(`Metric weights for ${dimension} must total 1; received ${metricWeightTotal}.`);
       }
     }
   }
 
-  for (const thresholdMetricId of Object.keys(config.thresholds)) {
-    if (!seenMetricIds.has(thresholdMetricId)) {
-      issues.push(`Threshold configured for unscored metric ${thresholdMetricId}.`);
+  if (metricWeightsByDimension) {
+    for (const key of Object.keys(metricWeightsByDimension)) {
+      if (!dimensionOrder.includes(key as RatioCategory)) {
+        issues.push(`Unexpected metric weight dimension configured: ${key}.`);
+      }
+    }
+  }
+
+  if (thresholds) {
+    for (const thresholdMetricId of Object.keys(thresholds)) {
+      if (!seenMetricIds.has(thresholdMetricId)) {
+        issues.push(`Threshold configured for unscored metric ${thresholdMetricId}.`);
+      }
     }
   }
 
   for (const [name, value] of [
-    ["minimumDimensionCoverage", config.minimumDimensionCoverage],
-    ["minimumTotalCoverage", config.minimumTotalCoverage],
+    ["minimumDimensionCoverage", candidate.minimumDimensionCoverage],
+    ["minimumTotalCoverage", candidate.minimumTotalCoverage],
   ] as const) {
-    if (!Number.isFinite(value) || value < 0 || value > 1) {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
       issues.push(`${name} must be between 0 and 1.`);
     }
+  }
+
+  if (
+    typeof candidate.minimumDimensionMetricCount !== "number" ||
+    !Number.isInteger(candidate.minimumDimensionMetricCount) ||
+    candidate.minimumDimensionMetricCount <= 0
+  ) {
+    issues.push("minimumDimensionMetricCount must be a positive integer.");
+  }
+
+  if (
+    typeof candidate.minimumAvailableDimensionCount !== "number" ||
+    !Number.isInteger(candidate.minimumAvailableDimensionCount) ||
+    candidate.minimumAvailableDimensionCount < 1 ||
+    candidate.minimumAvailableDimensionCount > dimensionOrder.length
+  ) {
+    issues.push(`minimumAvailableDimensionCount must be an integer between 1 and ${dimensionOrder.length}.`);
   }
 
   return {
     valid: issues.length === 0,
     issues,
   };
+}
+
+export class ScoringConfigurationError extends Error {
+  constructor(public readonly issues: string[]) {
+    super(`Invalid scoring configuration: ${issues.join(" ")}`);
+    this.name = "ScoringConfigurationError";
+  }
+}
+
+export function assertValidScoringConfig(config: ScoringConfiguration): void {
+  const result = validateScoringConfig(config);
+  if (!result.valid) {
+    throw new ScoringConfigurationError(result.issues);
+  }
 }
 
 export function interpolateMetricScore(value: number, threshold: MetricThresholdConfiguration): number {
@@ -365,6 +505,7 @@ export function calculateScoreHistory(
   periods: PeriodRatioResult[],
   config: ScoringConfiguration = defaultScoringConfig
 ): PeriodScoreResult[] {
+  assertValidScoringConfig(config);
   const preliminaryScores = periods.map((period) => calculateSingleScore(period, config));
 
   return preliminaryScores.map((score, index) => {

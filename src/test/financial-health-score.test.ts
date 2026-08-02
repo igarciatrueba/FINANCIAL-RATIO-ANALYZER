@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { MetricResult, PeriodRatioResult } from "@/domain";
+import type { MetricResult, PeriodRatioResult, ScoringConfiguration } from "@/domain";
 import { analyseFinancialStatements } from "@/domain/analyse-financial-statements";
 import {
   defaultScoringConfig,
@@ -47,6 +47,10 @@ function completeExcellentRatios(overrides: Record<string, MetricResult> = {}) {
   });
 }
 
+function cloneConfig(): ScoringConfiguration {
+  return structuredClone(defaultScoringConfig);
+}
+
 describe("Phase 5 scoring configuration", () => {
   it("validates dimension weights, metric weights and formula-registry compatibility", () => {
     const result = validateScoringConfig(defaultScoringConfig);
@@ -80,6 +84,75 @@ describe("Phase 5 scoring configuration", () => {
         expect.stringContaining("Metric weights for profitability must total 1"),
         expect.stringContaining("Anchors for ebit-margin must be ordered"),
       ])
+    );
+  });
+
+  it("rejects negative and non-finite weights", () => {
+    const config = cloneConfig();
+    config.dimensionWeights.profitability = -0.1;
+    config.dimensionWeights.liquidity = Number.POSITIVE_INFINITY;
+    config.metricWeights.solvency["debt-to-equity"] = -0.25;
+    config.metricWeights["cash-flow"]["free-cash-flow-margin"] = Number.NaN;
+
+    const result = validateScoringConfig(config);
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        "Dimension weight for profitability must be a finite non-negative number.",
+        "Dimension weight for liquidity must be a finite non-negative number.",
+        "Metric weight for debt-to-equity in solvency must be a finite non-negative number.",
+        "Metric weight for free-cash-flow-margin in cash-flow must be a finite non-negative number.",
+      ])
+    );
+  });
+
+  it("rejects empty and single-anchor thresholds", () => {
+    const emptyAnchorConfig = cloneConfig();
+    emptyAnchorConfig.thresholds["ebit-margin"].anchors = [];
+
+    const singleAnchorConfig = cloneConfig();
+    singleAnchorConfig.thresholds["net-margin"].anchors = [{ value: 0, score: 0 }];
+
+    expect(validateScoringConfig(emptyAnchorConfig).issues).toContain(
+      "Threshold ebit-margin must define at least two anchors."
+    );
+    expect(validateScoringConfig(singleAnchorConfig).issues).toContain(
+      "Threshold net-margin must define at least two anchors."
+    );
+  });
+
+  it("rejects invalid minimum-count settings", () => {
+    const config = cloneConfig();
+    config.minimumDimensionMetricCount = 0;
+    config.minimumAvailableDimensionCount = 6;
+
+    const result = validateScoringConfig(config);
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        "minimumDimensionMetricCount must be a positive integer.",
+        "minimumAvailableDimensionCount must be an integer between 1 and 5.",
+      ])
+    );
+  });
+
+  it("rejects invalid configuration at the score-history boundary", () => {
+    const config = cloneConfig();
+    config.metricWeights.profitability["ebit-margin"] = -0.25;
+
+    expect(() => calculateScoreHistory([completeExcellentRatios()], config)).toThrow(
+      "Invalid scoring configuration: Metric weight for ebit-margin in profitability must be a finite non-negative number."
+    );
+  });
+
+  it("rejects invalid configuration at the analysis orchestration boundary", () => {
+    const config = cloneConfig();
+    config.thresholds["current-ratio"].anchors = [];
+
+    expect(() => analyseFinancialStatements(cloneDemoCompany("novatech-solutions"), config)).toThrow(
+      "Invalid scoring configuration: Threshold current-ratio must define at least two anchors."
     );
   });
 });
@@ -255,5 +328,7 @@ describe("Phase 5 score history and orchestration", () => {
     expect(atlas.insights.some((insight) => insight.category === "risk")).toBe(true);
     expect(novaOne.coverage.coveragePercentage).toBeGreaterThanOrEqual(70);
     expect(atlas.coverage.coveragePercentage).toBeGreaterThanOrEqual(70);
+    expect(novaOne.score.total).toBe(93.65057929351761);
+    expect(atlas.score.total).toBe(31.438456243635027);
   });
 });

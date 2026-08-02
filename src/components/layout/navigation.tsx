@@ -46,12 +46,24 @@ type PrimaryNavigationProps = {
   currentPath?: string;
   compact?: boolean;
   label?: string;
+  orientation?: "vertical" | "horizontal";
 };
 
-export function PrimaryNavigation({ currentPath, compact = false, label = "Primary" }: PrimaryNavigationProps) {
+export function PrimaryNavigation({
+  currentPath,
+  compact = false,
+  label = "Primary",
+  orientation = "vertical",
+}: PrimaryNavigationProps) {
   return (
     <nav aria-label={label}>
-      <ul className={cn("grid gap-2", compact && "gap-1")}>
+      <ul
+        className={cn(
+          "grid gap-2",
+          compact && "gap-1",
+          orientation === "horizontal" && "flex min-w-max items-center gap-1"
+        )}
+      >
         {APP_NAVIGATION.map((item) => {
           const Icon = item.icon;
           const isCurrent = currentPath === item.href;
@@ -62,11 +74,12 @@ export function PrimaryNavigation({ currentPath, compact = false, label = "Prima
                 aria-current={isCurrent ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-3 rounded-sm border border-transparent px-3 py-2 text-small font-medium text-neutral-300 transition-colors duration-150 hover:border-border hover:bg-surface-elevated hover:text-neutral-50",
+                  orientation === "horizontal" && "whitespace-nowrap px-2.5 py-1.5 text-caption md:px-3 md:py-2 md:text-small",
                   isCurrent && "border-border bg-surface-elevated text-neutral-50"
                 )}
                 href={item.href}
               >
-                <Icon aria-hidden="true" className="h-5 w-5 text-primary" />
+                <Icon aria-hidden="true" className={cn("h-5 w-5 text-primary", orientation === "horizontal" && "h-4 w-4")} />
                 <span>{item.label}</span>
               </Link>
             </li>

@@ -86,6 +86,10 @@ textarea {
   outline-offset: 2px;
 }
 
+main section {
+  scroll-margin-top: 192px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

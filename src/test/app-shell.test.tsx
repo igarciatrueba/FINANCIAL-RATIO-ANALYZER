@@ -26,7 +26,7 @@ describe("Phase 1 application shell", () => {
       </AppShell>
     );
 
-    const primaryNavigation = screen.getByRole("navigation", { name: "Primary" });
+    const primaryNavigation = screen.getByRole("navigation", { name: "Global navigation" });
 
     expect(primaryNavigation).toBeInTheDocument();
     expect(within(primaryNavigation).getByRole("link", { name: /financial input/i })).toHaveAttribute(

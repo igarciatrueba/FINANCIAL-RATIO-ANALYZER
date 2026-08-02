@@ -179,6 +179,19 @@ describe("profitability formulas", () => {
     expectAvailable(calculateReturnOnCapitalEmployed(currentPeriod, previousPeriod), 240 / 935);
   });
 
+  it("keeps ROCE available when current capital employed is negative but average capital employed remains positive", () => {
+    const negativeCurrentCapitalPeriod = {
+      ...currentPeriod,
+      balanceSheet: {
+        ...currentPeriod.balanceSheet,
+        totalAssets: 200,
+        currentLiabilities: 500,
+      },
+    };
+
+    expectAvailable(calculateReturnOnCapitalEmployed(negativeCurrentCapitalPeriod, previousPeriod), 240 / 260);
+  });
+
   it("uses current closing balance fallback for oldest-period ROA", () => {
     expectAvailable(calculateReturnOnAssets(currentPeriod), 144 / 1300);
   });
@@ -196,7 +209,7 @@ describe("profitability formulas", () => {
     expectAvailable(calculateReturnOnAssets(lossPeriod, previousPeriod), -36 / 1150);
   });
 
-  it("rejects non-meaningful negative equity and capital-employed denominators", () => {
+  it("rejects non-meaningful negative equity and negative average capital-employed denominators", () => {
     const negativeEquityPeriod = {
       ...currentPeriod,
       balanceSheet: {
@@ -208,8 +221,8 @@ describe("profitability formulas", () => {
       ...currentPeriod,
       balanceSheet: {
         ...currentPeriod.balanceSheet,
-        totalAssets: 200,
-        currentLiabilities: 500,
+        totalAssets: 100,
+        currentLiabilities: 1200,
       },
     };
 

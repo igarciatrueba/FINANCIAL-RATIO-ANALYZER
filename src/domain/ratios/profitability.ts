@@ -4,7 +4,6 @@ import {
   calculateAverageCapitalEmployed,
   calculateAverageEquity,
   calculateAverageTotalAssets,
-  calculateCapitalEmployed,
   calculateGrossProfitValue,
   isAvailableMetric,
   safeDivide,
@@ -76,12 +75,6 @@ export function calculateReturnOnCapitalEmployed(
   period: FinancialPeriod,
   previousPeriod?: FinancialPeriod
 ): MetricResult {
-  const currentCapitalEmployed = calculateCapitalEmployed(period);
-
-  if (isAvailableMetric(currentCapitalEmployed) && currentCapitalEmployed.value < 0) {
-    return unavailableMetric("non-meaningful-denominator", "average capital employed");
-  }
-
   const averageCapitalEmployed = calculateAverageCapitalEmployed(period, previousPeriod);
 
   if (!isAvailableMetric(averageCapitalEmployed)) {

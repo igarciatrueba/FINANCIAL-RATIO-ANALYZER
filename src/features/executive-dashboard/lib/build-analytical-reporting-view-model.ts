@@ -93,6 +93,14 @@ function finiteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function isSelectableRatioMetric(definition: (typeof formulaRegistry)[keyof typeof formulaRegistry]) {
+  return definition.id !== "gross-profit" && definition.id !== "free-cash-flow";
+}
+
+function ratioTrendPriority(definition: (typeof formulaRegistry)[keyof typeof formulaRegistry]) {
+  return definition.id === "ebit-margin" ? -1 : 0;
+}
+
 export function buildDimensionRadarViewModel(result: FinancialAnalysisResult): DashboardDimensionRadarViewModel {
   return {
     indicators: dimensionOrder.map((dimension) => ({
@@ -138,7 +146,7 @@ export function buildRatioTrendViewModel(result: FinancialAnalysisResult): Dashb
   };
   const metricsById: Record<string, DashboardRatioTrendMetricViewModel> = {};
 
-  for (const definition of Object.values(formulaRegistry)) {
+  for (const definition of Object.values(formulaRegistry).filter(isSelectableRatioMetric).sort((a, b) => ratioTrendPriority(a) - ratioTrendPriority(b))) {
     const points = result.periods.map((period) => {
       const metric = metricFromPeriod(period, definition.id);
       const value = valueFromMetric(metric);
@@ -175,7 +183,7 @@ export function buildRatioTrendViewModel(result: FinancialAnalysisResult): Dashb
   return {
     categories,
     defaultCategory: "profitability",
-    defaultMetricId: metricsByCategory.profitability[0]?.metricId ?? Object.keys(metricsById)[0],
+    defaultMetricId: metricsById["ebit-margin"]?.metricId ?? metricsByCategory.profitability[0]?.metricId ?? Object.keys(metricsById)[0],
     metricsByCategory,
     metricsById,
   };

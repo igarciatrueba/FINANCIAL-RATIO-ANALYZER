@@ -17,6 +17,38 @@ function chartValue(value: number | null) {
   return value === null ? null : value;
 }
 
+function waterfallChartData(waterfall: DashboardProfitabilityWaterfallViewModel) {
+  let balance = 0;
+
+  return waterfall.steps.map((step) => {
+    const movement = step.rawValue ?? 0;
+    const isSubtotal = step.kind === "subtotal" || step.kind === "total";
+    const resultingBalance = isSubtotal ? movement : balance + movement;
+    const base = isSubtotal ? 0 : Math.min(balance, resultingBalance);
+    const value = Math.abs(isSubtotal ? resultingBalance : movement);
+    const color =
+      step.kind === "subtotal" || step.kind === "total"
+        ? chartTheme.colors.current
+        : step.kind === "bridge"
+          ? chartTheme.colors.warning
+          : movement < 0
+            ? chartTheme.colors.negative
+            : chartTheme.colors.positive;
+
+    balance = resultingBalance;
+
+    return {
+      base,
+      value,
+      movement,
+      resultingBalance,
+      label: step.label,
+      displayValue: step.value.display,
+      color,
+    };
+  });
+}
+
 export function buildDimensionRadarOption(
   radar: DashboardDimensionRadarViewModel,
   reducedMotion = false
@@ -128,11 +160,34 @@ export function buildProfitabilityWaterfallOption(
   waterfall: DashboardProfitabilityWaterfallViewModel,
   reducedMotion = false
 ): EChartsCoreOption {
+  const data = waterfallChartData(waterfall);
+
   return {
     animation: animation(reducedMotion),
     backgroundColor: chartTheme.colors.background,
     color: [chartTheme.colors.current],
-    tooltip: baseTooltip(),
+    tooltip: {
+      ...baseTooltip(),
+      trigger: "axis",
+      formatter: (params: unknown) => {
+        const items = Array.isArray(params) ? params : [params];
+        const valueItem = items.find((item) => {
+          return typeof item === "object" && item !== null && "seriesName" in item && item.seriesName === "Profitability bridge";
+        }) as { name?: string; data?: { displayValue?: string; movement?: number; resultingBalance?: number } } | undefined;
+        const itemData = valueItem?.data;
+        const movement = itemData?.movement ?? 0;
+        const movementPrefix = movement > 0 ? "+" : "";
+        const balance = itemData?.resultingBalance;
+
+        return [
+          `<strong>${valueItem?.name ?? "Profitability bridge"}</strong>`,
+          `Step movement: ${itemData?.displayValue ?? `${movementPrefix}${movement}`}`,
+          typeof balance === "number" ? `Resulting balance: ${balance}` : "",
+        ]
+          .filter(Boolean)
+          .join("<br/>");
+      },
+    },
     grid: { left: 44, right: 18, top: 24, bottom: 58 },
     xAxis: {
       type: "category",
@@ -147,18 +202,24 @@ export function buildProfitabilityWaterfallOption(
     },
     series: [
       {
+        name: "Waterfall base",
+        type: "bar",
+        stack: "profitability-waterfall",
+        data: data.map((item) => item.base),
+        itemStyle: { color: "transparent" },
+        emphasis: { disabled: true },
+        silent: true,
+      },
+      {
         name: "Profitability bridge",
         type: "bar",
-        data: waterfall.steps.map((step) => ({
-          value: chartValue(step.rawValue),
-          itemStyle: {
-            color:
-              step.kind === "negative" || (step.rawValue ?? 0) < 0
-                ? chartTheme.colors.negative
-                : step.kind === "bridge"
-                  ? chartTheme.colors.warning
-                  : chartTheme.colors.current,
-          },
+        stack: "profitability-waterfall",
+        data: data.map((item) => ({
+          value: item.value,
+          movement: item.movement,
+          resultingBalance: item.resultingBalance,
+          displayValue: item.displayValue,
+          itemStyle: { color: item.color },
         })),
         barMaxWidth: 34,
       },

@@ -193,7 +193,12 @@ describe("Phase 6 Delivery 1 dashboard view model", () => {
       "Cash Flow",
     ]);
     expect(viewModel.ratioTrend.defaultCategory).toBe("profitability");
-    expect(viewModel.ratioTrend.defaultMetricId).toBe("gross-profit");
+    expect(viewModel.ratioTrend.defaultMetricId).toBe("ebit-margin");
+    expect(viewModel.ratioTrend.metricsById["gross-profit"]).toBeUndefined();
+    expect(viewModel.ratioTrend.metricsById["free-cash-flow"]).toBeUndefined();
+    expect(viewModel.ratioTrend.metricsById["free-cash-flow-margin"]).toBeDefined();
+    expect(viewModel.ratioTrend.metricsByCategory.profitability[0].label).toBe("EBIT Margin");
+    expect(Object.values(viewModel.ratioTrend.metricsById).every((metric) => metric.unit !== "currency")).toBe(true);
     expect(viewModel.ratioTable.groups.flatMap((group) => group.rows)).toHaveLength(Object.keys(formulaRegistry).length);
     expect(viewModel.workingCapital.metrics.map((metric) => metric.metricId)).toEqual([
       "days-sales-outstanding",
@@ -258,6 +263,70 @@ describe("Phase 6 Delivery 1 dashboard view model", () => {
     expect(unavailable.status).toBe("unavailable");
     expect(full.status).toBe("full");
     expect(full.steps.map((step) => step.label)).toEqual(expect.arrayContaining(["Operating expenses", "Interest expense", "Taxes"]));
+  });
+
+  it("builds a true cumulative partial profitability waterfall option", () => {
+    const input = cloneDemoCompany("novatech-solutions");
+    const waterfall = buildExecutiveDashboardViewModel(analyseFinancialStatements(input), input).profitabilityWaterfall;
+    const option = buildProfitabilityWaterfallOption(waterfall);
+    const series = option.series as Array<{ name?: string; data: Array<number | { value: number }> }>;
+    const baseSeries = series.find((item) => item.name === "Waterfall base");
+    const valueSeries = series.find((item) => item.name === "Profitability bridge");
+
+    expect(waterfall.status).toBe("partial");
+    expect(baseSeries).toBeDefined();
+    expect(valueSeries).toBeDefined();
+    expect(baseSeries?.data).toEqual([0, 1391, 0, 480, 0, 372, 0]);
+    expect(valueSeries?.data.map((item) => (typeof item === "number" ? item : item.value))).toEqual([
+      1880, 489, 1391, 911, 480, 108, 372,
+    ]);
+  });
+
+  it("positions full profitability waterfall operating, interest and tax bridges cumulatively", () => {
+    const input = cloneDemoCompany("novatech-solutions") as FinancialAnalysisInput & {
+      periods: [
+        FinancialAnalysisInput["periods"][0],
+        FinancialAnalysisInput["periods"][1],
+        FinancialAnalysisInput["periods"][2] & {
+          incomeStatement: FinancialAnalysisInput["periods"][2]["incomeStatement"] & { operatingExpenses: number; taxExpense: number };
+        },
+      ];
+    };
+    input.periods[2].incomeStatement.operatingExpenses = 911;
+    input.periods[2].incomeStatement.taxExpense = 93;
+    const waterfall = buildExecutiveDashboardViewModel(analyseFinancialStatements(input), input).profitabilityWaterfall;
+    const option = buildProfitabilityWaterfallOption(waterfall);
+    const series = option.series as Array<{ name?: string; data: Array<number | { value: number }> }>;
+    const baseSeries = series.find((item) => item.name === "Waterfall base");
+    const valueSeries = series.find((item) => item.name === "Profitability bridge");
+
+    expect(waterfall.status).toBe("full");
+    expect(waterfall.steps.map((step) => step.label)).toEqual([
+      "Revenue",
+      "Cost of Goods Sold",
+      "Gross Profit",
+      "Operating expenses",
+      "EBIT",
+      "Interest expense",
+      "Taxes",
+      "Net Income",
+    ]);
+    expect(baseSeries?.data).toEqual([0, 1391, 0, 480, 0, 465, 372, 0]);
+    expect(valueSeries?.data.map((item) => (typeof item === "number" ? item : item.value))).toEqual([
+      1880, 489, 1391, 911, 480, 15, 93, 372,
+    ]);
+  });
+
+  it("keeps unavailable profitability waterfall options empty and non-invented", () => {
+    const input = cloneDemoCompany("novatech-solutions");
+    const waterfall = buildExecutiveDashboardViewModel(analyseFinancialStatements(input)).profitabilityWaterfall;
+    const option = buildProfitabilityWaterfallOption(waterfall);
+    const series = option.series as Array<{ name?: string; data: unknown[] }>;
+
+    expect(waterfall.status).toBe("unavailable");
+    expect(waterfall.steps).toEqual([]);
+    expect(series.find((item) => item.name === "Waterfall base")?.data).toEqual([]);
+    expect(series.find((item) => item.name === "Profitability bridge")?.data).toEqual([]);
   });
 
   it("builds chart options from view models with reduced-motion and unavailable values preserved", () => {

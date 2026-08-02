@@ -234,12 +234,17 @@ describe("Phase 6 Delivery 1 executive dashboard integration", () => {
     render(<ExecutiveDashboardSessionBoundary />);
 
     await screen.findByText("NovaTech Solutions");
+    expect(screen.getByRole("option", { name: "EBIT Margin" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Gross Profit" })).not.toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText(/ratio category/i), "liquidity");
     expect(screen.getByRole("option", { name: "Current Ratio" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "EBIT Margin" })).not.toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText(/ratio metric/i), "quick-ratio");
     expect(screen.getAllByText(/Quick Ratio/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("region", { name: /selectable ratio trend/i })).toHaveTextContent(/Metric unit:\s*multiple/i);
+    await user.selectOptions(screen.getByLabelText(/ratio category/i), "cash-flow");
+    expect(screen.getByRole("option", { name: "Free Cash Flow Margin" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Free Cash Flow" })).not.toBeInTheDocument();
   });
 
   it("renders detailed ratio groups and keyboard-expandable formula details without raw metric ids", async () => {

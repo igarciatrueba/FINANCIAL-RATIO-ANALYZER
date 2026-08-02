@@ -120,6 +120,7 @@ export interface DimensionScore {
   coveragePercentage: number;
   strongestMetrics: string[];
   weakestMetrics: string[];
+  unavailableMetricIds: string[];
 }
 
 export type FinancialHealthClassification =
@@ -136,6 +137,12 @@ export interface FinancialHealthScore {
   dimensions: DimensionScore[];
   changeFromPreviousPeriod: number | null;
   coveragePercentage: number;
+  strongestDimension: DimensionScore | null;
+  weakestDimension: DimensionScore | null;
+  positiveDrivers: ScoreDriver[];
+  negativeDrivers: ScoreDriver[];
+  metricScores: MetricScoreResult[];
+  trend: TrendDirection;
 }
 
 export type InsightCategory = "strength" | "risk" | "observation";
@@ -153,6 +160,7 @@ export interface FinancialInsight {
   affectedYear: ReportingYear;
   trend: TrendDirection;
   priority: number;
+  evidence: InsightEvidence[];
 }
 
 export interface DuPontResult {
@@ -175,6 +183,7 @@ export interface PeriodAnalysis {
   year: ReportingYear;
   ratios: Record<string, MetricResult>;
   dupont: DuPontResult;
+  score?: FinancialHealthScore;
 }
 
 export interface FinancialAnalysisResult {
@@ -185,6 +194,90 @@ export interface FinancialAnalysisResult {
   score: FinancialHealthScore;
   insights: FinancialInsight[];
   coverage: AnalyticalCoverage;
+  scoreHistory: PeriodScoreResult[];
+  principalInsights: PrincipalInsights;
+}
+
+export type ThresholdMode = "higher-is-better" | "lower-is-better" | "target-range";
+
+export interface ScoreAnchor {
+  value: number;
+  score: number;
+}
+
+export interface MetricThresholdConfiguration {
+  metricId: string;
+  mode: ThresholdMode;
+  anchors: ScoreAnchor[];
+}
+
+export interface ScoringConfiguration {
+  disclaimer: string;
+  dimensionWeights: Record<RatioCategory, number>;
+  metricWeights: Record<RatioCategory, Partial<Record<string, number>>>;
+  thresholds: Record<string, MetricThresholdConfiguration>;
+  minimumDimensionCoverage: number;
+  minimumDimensionMetricCount: number;
+  minimumTotalCoverage: number;
+  minimumAvailableDimensionCount: number;
+}
+
+export interface ScoringConfigurationValidationResult {
+  valid: boolean;
+  issues: string[];
+}
+
+export interface MetricScoreResult {
+  metricId: string;
+  dimension: RatioCategory;
+  raw: MetricResult;
+  score: number | null;
+  configuredWeight: number;
+  effectiveWeight: number;
+  totalEffectiveWeight: number;
+  contribution: number;
+}
+
+export interface ScoreDriver {
+  metricId: string;
+  dimension: RatioCategory;
+  raw: MetricResult;
+  score: number;
+  impact: number;
+  configuredWeight: number;
+  effectiveWeight: number;
+  totalEffectiveWeight: number;
+  contribution: number;
+}
+
+export interface PeriodScoreResult {
+  year: ReportingYear;
+  score: FinancialHealthScore;
+}
+
+export type InsightEvidence =
+  | {
+      type: "metric";
+      metricId: string;
+      year: ReportingYear;
+      value: MetricResult;
+    }
+  | {
+      type: "change";
+      metricId: string;
+      fromYear: ReportingYear;
+      toYear: ReportingYear;
+      change: MetricResult;
+    }
+  | {
+      type: "coverage";
+      coveragePercentage: number;
+      unavailableMetricIds: string[];
+    };
+
+export interface PrincipalInsights {
+  strengths: FinancialInsight[];
+  risks: FinancialInsight[];
 }
 
 export interface ScenarioAssumptions {

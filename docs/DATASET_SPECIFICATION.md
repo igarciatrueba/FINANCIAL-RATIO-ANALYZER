@@ -101,11 +101,11 @@ Characteristics
 - Lower margins
 - Inventory intensive
 - Higher leverage
-- Slower growth
+- Slower or declining growth
 
 Purpose
 
-Demonstrate a more complex financial profile.
+Demonstrate a financially stressed industrial company with progressive deterioration.
 
 ---
 
@@ -331,15 +331,15 @@ Increasing cash generation.
 
 Atlas Manufacturing
 
-Stable revenue.
+Slower or declining revenue.
 
 Pressure on margins.
 
 Inventory growth.
 
-Higher leverage.
+Higher leverage and low interest coverage.
 
-Working capital challenges.
+Working capital challenges and weaker cash-flow conversion.
 
 The analytical engine should naturally identify these characteristics.
 
@@ -577,17 +577,23 @@ Industrial Manufacturing
 
 Profile
 
-- Stable revenue
+- Slower or declining growth
 - Inventory intensive
 - Higher leverage
 - Working capital pressure
 - Lower margins
+- Weakening liquidity
+- Negative free cash flow in the latest period
 
-Expected Health Score
+Expected Health Score Profile
 
 Approximately
 
-55–70
+- 2022: 50–60
+- 2023: 40–50
+- 2024: 25–40
+
+Atlas is intended to demonstrate progressive deterioration rather than a merely moderately weaker company. Under the generic Financial Health Score methodology, the latest period may classify as Weak or Critical when declining profitability, weak liquidity, negative free cash flow, low interest coverage and working-capital pressure occur together.
 
 Both companies should produce clearly different analytical conclusions.
 

@@ -282,7 +282,7 @@ export interface PrincipalInsights {
 
 export interface ScenarioAssumptions {
   revenueGrowthPercent: number;
-  ebitMarginPercent?: number;
+  ebitMarginPercent: number | null;
   totalDebtChangePercent: number;
   currentAssetsChangePercent: number;
   inventoryChangePercent: number;

@@ -47,6 +47,9 @@ export function AppShell({ children, currentPath, title = "Financial Ratio Analy
       >
         {children}
       </main>
+      <p className="hidden print:block print:px-8 print:pb-6 print:text-xs">
+        Educational analysis only. This is not a credit rating, audit opinion, investment recommendation or substitute for professional judgement.
+      </p>
     </div>
   );
 }

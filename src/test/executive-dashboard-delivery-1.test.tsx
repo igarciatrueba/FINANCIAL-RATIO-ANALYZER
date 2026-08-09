@@ -122,6 +122,8 @@ describe("Phase 6 Delivery 1 executive dashboard integration", () => {
     expect(methodologyLink).toHaveAttribute("href", "/methodology");
 
     await user.tab();
+    expect(screen.getByRole("button", { name: /print \/ save pdf/i })).toHaveFocus();
+    await user.tab();
     await waitFor(() => expect(editLink).toHaveFocus());
   });
 

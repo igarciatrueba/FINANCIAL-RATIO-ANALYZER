@@ -15,6 +15,7 @@ describe("Phase 1 application shell", () => {
       "Ratio Analysis",
       "DuPont Analysis",
       "Scenario Lab",
+      "Engine Map",
       "Methodology",
     ]);
   });

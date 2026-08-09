@@ -100,3 +100,14 @@ main section {
     transition-duration: 0.01ms !important;
   }
 }
+
+@media print {
+  :root, body { background: #fff !important; color: #111827 !important; }
+  header, nav, .print\:hidden, button, input, select, textarea { display: none !important; }
+  main { max-width: none !important; min-height: 0 !important; padding: 0 !important; }
+  section, details, table { break-inside: avoid; }
+  [class*="bg-surface"], [class*="bg-background"] { background: #fff !important; }
+  [class*="text-neutral"] { color: #111827 !important; }
+  [class*="border-"] { border-color: #cbd5e1 !important; }
+  a { color: #111827 !important; }
+}

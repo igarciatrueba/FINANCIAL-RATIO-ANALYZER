@@ -3,6 +3,7 @@ import { CheckCircle2, FilePenLine, Library } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PrintReportButton } from "@/components/print-report-button";
 import type { ExecutiveDashboardViewModel } from "@/features/executive-dashboard/types/dashboard.types";
 
 type AnalysisCommandBarProps = {
@@ -35,6 +36,7 @@ export function AnalysisCommandBar({ viewModel }: AnalysisCommandBarProps) {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row xl:shrink-0">
+          <PrintReportButton />
           <Button asChild>
             <Link aria-label="Edit financials in the financial input workflow" href={viewModel.routes.editInput}>
               <FilePenLine aria-hidden="true" className="h-5 w-5" />

@@ -12,14 +12,15 @@ export const metadata: Metadata = {
   applicationName: "Financial Ratio Analyzer",
   authors: [{ name: "Iker García Trueba" }],
   creator: "Iker García Trueba",
-  metadataBase: new URL("https://financial-ratio-analyzer.vercel.app"),
   openGraph: {
     title: "Financial Ratio Analyzer",
     description:
       "Transform simplified financial statements into transparent, decision-ready financial insights.",
     type: "website",
     locale: "en_US",
+    images: [{ url: "/social-preview.svg", width: 1200, height: 630, alt: "Financial Ratio Analyzer" }],
   },
+  icons: { icon: "/icon.svg" },
 };
 
 export const viewport: Viewport = {

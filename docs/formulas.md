@@ -766,3 +766,44 @@ Unavailable conditions:
 - average equity is negative and non-meaningful.
 
 Limitations: the Phase 3 primitive reports reconciliation status only. Driver interpretation belongs to later DuPont and insight phases.
+
+### ROE Driver Attribution
+
+Definition: deterministic attribution of the current-versus-previous ROE movement to the three DuPont factors.
+
+Method:
+
+```text
+ROE = Net Profit Margin * Asset Turnover * Financial Leverage
+```
+
+For the current and previous reporting periods, the attribution evaluates all six possible substitution orders for:
+
+- Net Profit Margin;
+- Asset Turnover;
+- Financial Leverage.
+
+For each order, one factor is substituted from its previous-period value to its current-period value while the other factors remain at the values present at that step. The factor receives the marginal ROE change created by that substitution. The final contribution for each factor is the average of its marginal contributions across all six orders.
+
+This is an exact Shapley decomposition for the three-factor multiplicative identity. It is deterministic and order-independent.
+
+Reconciliation:
+
+```text
+Margin contribution
++ Asset Turnover contribution
++ Financial Leverage contribution
+= Current ROE - Previous ROE
+```
+
+Internal calculations use unrounded values. The reconciliation tolerance is `1e-12`. If the contribution sum does not reconcile to the ROE movement within tolerance, no residual is assigned silently; attribution is reported as unavailable.
+
+Unavailable conditions:
+
+- current or previous ROE is unavailable;
+- current or previous Net Profit Margin is unavailable;
+- current or previous Asset Turnover is unavailable;
+- current or previous Financial Leverage is unavailable;
+- the contribution sum does not reconcile within tolerance.
+
+Interpretation: attribution identifies which factor is most associated with the period-over-period ROE movement. It is a mathematical decomposition of supplied statements and does not prove business causality, creditworthiness, investment attractiveness or audit assurance.

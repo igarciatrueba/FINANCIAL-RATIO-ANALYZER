@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, Gauge, LayoutDashboard, Network, SlidersHorizontal, TableProperties } from "lucide-react";
+import { BookOpen, Braces, Gauge, LayoutDashboard, Network, SlidersHorizontal, TableProperties } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -34,6 +34,11 @@ export const APP_NAVIGATION: NavigationItem[] = [
     label: "Scenario Lab",
     href: "/scenario",
     icon: SlidersHorizontal,
+  },
+  {
+    label: "Engine Map",
+    href: "/engine-map",
+    icon: Braces,
   },
   {
     label: "Methodology",

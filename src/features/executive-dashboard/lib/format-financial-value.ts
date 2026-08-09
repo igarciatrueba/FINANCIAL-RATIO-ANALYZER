@@ -44,6 +44,21 @@ function unavailable(reason?: string): FormattedFinancialValue {
   };
 }
 
+function displayZeroTolerance(unit: FormatUnit) {
+  switch (unit) {
+    case "currency":
+      return 0.5;
+    case "multiple":
+      return 0.005;
+    case "percentage":
+      return 0.0005;
+    case "days":
+    case "score":
+    case "score-change":
+      return 0.05;
+  }
+}
+
 export function reasonForUnavailableMetric(metric: MetricResult | undefined) {
   return metric?.status === "unavailable" ? metric.reason : undefined;
 }
@@ -53,7 +68,11 @@ export function valueFromMetric(metric: MetricResult | undefined) {
 }
 
 export function formatFinancialValue(input: FormatFinancialValueInput): FormattedFinancialValue {
-  const { value, unit, currency = "EUR", unavailableReason, signed } = input;
+  const { unit, currency = "EUR", unavailableReason, signed } = input;
+  const value =
+    input.value !== null && Number.isFinite(input.value) && Math.abs(input.value) < displayZeroTolerance(unit)
+      ? 0
+      : input.value;
 
   if (value === null || !Number.isFinite(value)) {
     return unavailable(unavailableReason);

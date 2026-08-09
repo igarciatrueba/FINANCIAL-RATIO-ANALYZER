@@ -9,7 +9,7 @@ The Financial Ratio Analyzer is a deterministic educational analysis tool for th
 - [Formula catalogue](formulas.md): implemented ratios, units, definitions and availability conditions.
 - [Scoring methodology](scoring-methodology.md): score anchors, coverage, classification and deterministic insights.
 - [Scenario methodology](scenario-methodology.md): immutable Base Case transformations, assumptions and limitations.
-- [Engine Map](/engine-map): in-product architecture explanation.
+- Engine Map: available in the application at `/engine-map`.
 
 ## Input and availability
 

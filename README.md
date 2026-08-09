@@ -81,7 +81,7 @@ NovaTech Solutions and Atlas Manufacturing Group are fictional demonstration com
 
 ## Project status
 
-Phases 0–9 and the Ratio Analysis prerequisite are implemented. Phase 10 documentation and repository presentation is in progress; deployment is deliberately out of scope.
+Phases 0–10 are implemented and validated. Production deployment remains pending the final release step.
 
 ## Licence
 

@@ -96,9 +96,9 @@ export function ChartContainer({
   }, [isEmpty, option]);
 
   return (
-    <div className="rounded-md border border-border bg-surface p-4 md:p-5">
+    <div className="premium-panel rounded-lg p-4 md:p-5">
       <div>
-        <p className="text-caption uppercase text-neutral-400">Visual analysis</p>
+        <p className="premium-kicker">Visual analysis</p>
         <h2 className="mt-1 text-h4 font-semibold text-neutral-50">{accessibleName}</h2>
         <p className="mt-1 text-caption text-neutral-400" id={descriptionId}>
           {accessibleDescription}
@@ -124,7 +124,7 @@ export function ChartContainer({
           <div
             aria-describedby={descriptionId}
             aria-label={accessibleName}
-            className={`min-w-0 ${heightClassName}`}
+            className={`min-w-0 rounded-sm ${heightClassName}`}
             ref={containerRef}
             role="img"
           />

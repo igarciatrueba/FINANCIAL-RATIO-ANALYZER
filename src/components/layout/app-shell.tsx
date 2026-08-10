@@ -12,7 +12,7 @@ type AppShellProps = {
 
 export function AppShell({ children, currentPath, title = "Financial Ratio Analyzer", subtitle }: AppShellProps) {
   return (
-    <div className="min-h-screen bg-background text-neutral-50">
+    <div className="premium-shell min-h-screen bg-background text-neutral-50">
       <a
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-sm focus:bg-primary focus:px-4 focus:py-2 focus:text-small focus:font-semibold"
         href="#main-content"
@@ -20,29 +20,27 @@ export function AppShell({ children, currentPath, title = "Financial Ratio Analy
         Skip to content
       </a>
 
-      <header
-        className="sticky top-0 z-50 border-b border-border bg-background shadow-1"
-        data-sticky-header="true"
-      >
-        <div className="mx-auto grid max-w-[1280px] gap-3 px-4 py-3 md:px-8">
-          <div className="flex min-w-0 items-start justify-between gap-4">
-            <div className="min-w-0">
-              <Link className="text-small font-semibold text-neutral-50" href="/">
-                Financial Ratio Analyzer
-              </Link>
-              <h1 className="mt-1 text-h4 font-semibold leading-[1.2] text-neutral-50">{title}</h1>
-              {subtitle ? <p className="mt-0.5 text-caption text-neutral-400">{subtitle}</p> : null}
+      <header className="sticky top-0 z-50 bg-background/90 px-3 pt-3 backdrop-blur-md print:hidden md:px-6" data-sticky-header="true">
+        <div className="premium-panel mx-auto grid max-w-[1340px] gap-2 rounded-xl px-3 py-2 backdrop-blur-xl md:grid-cols-[minmax(13rem,1fr)_auto] md:items-center md:px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link aria-label="Financial Ratio Analyzer home" className="flex min-w-0 items-center gap-2.5" href="/">
+              <span aria-hidden="true" className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-gradient-to-br from-primary to-blue-400 text-sm font-bold text-white shadow-[0_0_20px_rgb(37_99_235/0.4)]">↗</span>
+              <span className="truncate text-small font-semibold tracking-tight text-neutral-50">Financial Ratio Analyzer</span>
+            </Link>
+            <span className="hidden h-5 w-px bg-border lg:block" />
+            <div className="hidden min-w-0 lg:block">
+              <h1 className="truncate text-caption font-semibold uppercase tracking-[0.1em] text-neutral-300">{title}</h1>
+              {subtitle ? <p className="truncate text-caption text-neutral-500">{subtitle}</p> : null}
             </div>
           </div>
-
-          <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
+          <div className="min-w-0 overflow-x-auto pb-0.5">
             <PrimaryNavigation currentPath={currentPath} label="Global navigation" orientation="horizontal" />
           </div>
         </div>
       </header>
 
       <main
-        className={cn("mx-auto min-h-[calc(100vh-112px)] max-w-[1280px] scroll-mt-48 px-4 py-6 md:px-8 md:py-8")}
+        className={cn("mx-auto min-h-[calc(100vh-112px)] max-w-[1340px] scroll-mt-40 px-4 py-7 md:px-8 md:py-10")}
         id="main-content"
       >
         {children}

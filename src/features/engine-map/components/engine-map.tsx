@@ -28,7 +28,7 @@ export function EngineMap() {
   const selectedStage = viewModel.stages.find((stage) => stage.id === selectedStageId) ?? viewModel.stages[0];
 
   return (
-    <div className="grid min-w-0 gap-6">
+    <div className="grid min-w-0 gap-7 premium-enter">
       <section className="border-b border-border pb-5" aria-labelledby="engine-map-overview">
         <Badge variant="info">Interactive architecture</Badge>
         <h2 className="mt-3 text-h2 font-semibold text-neutral-50" id="engine-map-overview">One analytical engine, many experiences</h2>

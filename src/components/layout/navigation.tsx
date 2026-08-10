@@ -78,13 +78,13 @@ export function PrimaryNavigation({
               <Link
                 aria-current={isCurrent ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-sm border border-transparent px-3 py-2 text-small font-medium text-neutral-300 transition-colors duration-150 hover:border-border hover:bg-surface-elevated hover:text-neutral-50",
-                  orientation === "horizontal" && "whitespace-nowrap px-2.5 py-1.5 text-caption md:px-3 md:py-2 md:text-small",
-                  isCurrent && "border-border bg-surface-elevated text-neutral-50"
+                  "flex items-center gap-2 rounded-md border border-transparent px-3 py-2 text-small font-medium text-neutral-300 transition-all duration-200 hover:border-blue-400/25 hover:bg-blue-400/8 hover:text-neutral-50",
+                  orientation === "horizontal" && "whitespace-nowrap px-2.5 py-1.5 text-caption md:px-3 md:py-1.5",
+                  isCurrent && "border-blue-400/25 bg-blue-500/12 text-neutral-50"
                 )}
                 href={item.href}
               >
-                <Icon aria-hidden="true" className={cn("h-5 w-5 text-primary", orientation === "horizontal" && "h-4 w-4")} />
+                <Icon aria-hidden="true" className={cn("h-5 w-5 text-information", orientation === "horizontal" && "h-3.5 w-3.5")} />
                 <span>{item.label}</span>
               </Link>
             </li>

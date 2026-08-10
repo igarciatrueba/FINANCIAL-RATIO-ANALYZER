@@ -151,7 +151,7 @@ function WorkflowNavigation({
   const currentIndex = getStepIndex(currentStep);
 
   return (
-    <div className="sticky top-0 z-30 border-b border-border bg-background/95 py-3">
+    <div className="sticky top-20 z-30 border-b border-border bg-background/95 py-3 backdrop-blur-xl md:top-24">
       <div aria-label="Compact workflow progress" className="mb-3 text-caption font-semibold uppercase text-neutral-400 md:hidden">
         Step {currentIndex + 1} of {workflowSteps.length}: {sectionLabels[currentStep]}
       </div>

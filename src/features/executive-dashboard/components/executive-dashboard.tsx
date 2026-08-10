@@ -19,7 +19,7 @@ type ExecutiveDashboardProps = {
 
 export function ExecutiveDashboard({ viewModel }: ExecutiveDashboardProps) {
   return (
-    <div className="grid min-w-0 gap-5">
+    <div className="grid min-w-0 gap-6 premium-enter">
       <AnalysisCommandBar viewModel={viewModel} />
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-12">

@@ -19,10 +19,10 @@ type ExecutiveDashboardProps = {
 
 export function ExecutiveDashboard({ viewModel }: ExecutiveDashboardProps) {
   return (
-    <div className="grid min-w-0 gap-6 premium-enter">
+    <div className="premium-workspace grid min-w-0 gap-8 premium-enter">
       <AnalysisCommandBar viewModel={viewModel} />
 
-      <div className="grid min-w-0 gap-5 lg:grid-cols-12">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-5">
           <HealthScorePanel viewModel={viewModel} />
         </div>
@@ -56,10 +56,13 @@ export function ExecutiveDashboard({ viewModel }: ExecutiveDashboardProps) {
 
       <ScoreContributionChart scoreContribution={viewModel.scoreContribution} />
 
-      <div className="grid min-w-0 gap-5 xl:grid-cols-2">
-        <ExecutiveInsightCards insights={viewModel.principalStrengths} title="Executive strength cards" type="strength" />
-        <ExecutiveInsightCards insights={viewModel.principalRisks} title="Executive risk cards" type="risk" />
-      </div>
+      <section className="border-t border-border pt-8" aria-label="What matters">
+        <div className="mb-6 flex items-end justify-between gap-4"><div><p className="premium-kicker">What matters</p><h2 className="mt-2 text-h2 font-semibold tracking-tight text-white">The principal financial signals</h2></div><p className="max-w-sm text-small text-neutral-400">Fixed rules, structured evidence and no generated narrative.</p></div>
+        <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+          <ExecutiveInsightCards insights={viewModel.principalStrengths} title="Strengths" type="strength" />
+          <ExecutiveInsightCards insights={viewModel.principalRisks} title="Risks" type="risk" />
+        </div>
+      </section>
 
       <DetailedRatioTable ratioTable={viewModel.ratioTable} />
     </div>

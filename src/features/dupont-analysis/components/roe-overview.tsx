@@ -20,17 +20,17 @@ function DirectionIcon({ direction }: { direction: DupontAnalysisViewModel["over
 
 export function RoeOverview({ viewModel }: RoeOverviewProps) {
   return (
-    <section aria-label="Return on Equity overview" className="rounded-md border border-border bg-surface p-5">
+    <section aria-label="Return on Equity overview" className="premium-panel rounded-lg p-6 md:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-caption uppercase text-neutral-400">Current ROE</p>
-          <h2 className="mt-1 text-h4 font-semibold text-neutral-50">Return on Equity</h2>
-          <p className="mt-2 text-[clamp(2.25rem,8vw,4.5rem)] font-semibold leading-none text-neutral-50">
+          <p className="premium-kicker">Current ROE</p>
+          <h2 className="mt-2 text-h2 font-semibold tracking-tight text-neutral-50">Return on Equity: what actually drives ROE?</h2>
+          <p className="mt-5 font-mono text-[clamp(4rem,10vw,7rem)] font-semibold leading-none tracking-tight text-blue-200">
             {viewModel.overview.currentRoe.display}
           </p>
           <p className="mt-2 text-small text-neutral-300">Return on Equity for {viewModel.period.currentYear}</p>
         </div>
-        <div className="rounded-sm border border-border bg-background/40 p-3">
+        <div className="border-l border-border pl-4">
           <p className="text-caption uppercase text-neutral-400">Identity reconciliation</p>
           <p className="mt-1 text-small font-semibold text-neutral-50">{viewModel.overview.reconciliationStatus}</p>
         </div>

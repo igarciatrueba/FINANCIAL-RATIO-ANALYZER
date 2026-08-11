@@ -47,7 +47,7 @@ export function buildPremiumLandingViewModel(result: FinancialAnalysisResult): P
     classification: result.score.classification,
     coverage: formatCoverage(result.coverage.coveragePercentage),
     signals: [
-      { label: "NOVATECH HEALTH", value: score === null ? "Unavailable" : formatFinancialValue({ value: score, unit: "score" }).display, state: result.score.classification.toUpperCase() },
+      { label: `${result.company.name.toUpperCase()} HEALTH`, value: score === null ? "Unavailable" : formatFinancialValue({ value: score, unit: "score" }).display, state: result.score.classification.toUpperCase() },
       { label: "EBIT MARGIN", value: displayMetric(ratio(result, "ebit-margin"), getDefinition("ebit-margin"), result.company.currency), state: "OPERATING" },
       { label: "CURRENT RATIO", value: displayMetric(ratio(result, "current-ratio"), getDefinition("current-ratio"), result.company.currency), state: "LIQUIDITY" },
       { label: "RETURN ON EQUITY", value: displayMetric(ratio(result, "return-on-equity"), getDefinition("return-on-equity"), result.company.currency), state: "RETURN" },

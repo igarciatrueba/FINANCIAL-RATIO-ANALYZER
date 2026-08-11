@@ -47,6 +47,24 @@ export const APP_NAVIGATION: NavigationItem[] = [
   },
 ];
 
+const analyticalItems = APP_NAVIGATION.filter((item) => ["/analysis", "/analysis/ratios", "/analysis/dupont", "/scenario", "/engine-map"].includes(item.href));
+const compactActionItems = APP_NAVIGATION.filter((item) => ["/input", "/methodology"].includes(item.href));
+
+export function AnalyticalNavigation({ currentPath }: { currentPath?: string }) {
+  return (
+    <nav aria-label="Global navigation">
+      <ul className="flex min-w-max items-center gap-1">
+        {analyticalItems.map((item) => {
+          const Icon = item.icon;
+          const current = item.href === currentPath;
+          return <li key={item.href}><Link aria-current={current ? "page" : undefined} className={cn("flex items-center gap-2 rounded-md border border-transparent px-2.5 py-1.5 text-caption font-medium text-neutral-400 transition-all hover:border-blue-400/25 hover:bg-blue-500/10 hover:text-white", current && "border-blue-400/30 bg-blue-500/12 text-white")} href={item.href}><Icon aria-hidden="true" className="h-3.5 w-3.5 text-information" /><span>{item.label}</span></Link></li>;
+        })}
+        {compactActionItems.map((item) => { const Icon = item.icon; return <li className="xl:hidden" key={item.href}><Link className="flex items-center gap-2 rounded-md border border-transparent px-2.5 py-1.5 text-caption font-medium text-neutral-400" href={item.href}><Icon aria-hidden="true" className="h-3.5 w-3.5 text-information" />{item.label}</Link></li>; })}
+      </ul>
+    </nav>
+  );
+}
+
 type PrimaryNavigationProps = {
   currentPath?: string;
   compact?: boolean;

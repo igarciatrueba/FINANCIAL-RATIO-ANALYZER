@@ -14,10 +14,10 @@ export function ExecutiveInsightCards({ title, type, insights }: ExecutiveInsigh
   const variant = type === "strength" ? "success" : "danger";
 
   return (
-    <section aria-label={`Executive ${type} cards`} className="rounded-md border border-border bg-surface p-5 md:p-6" role="region">
+    <section aria-label={`Executive ${type} cards`} className="border-t border-border pt-5" role="region">
       <div>
-        <p className="text-caption uppercase text-neutral-400">Executive insight cards</p>
-        <h2 className="mt-1 text-h4 font-semibold text-neutral-50">{title}</h2>
+        <p className="premium-kicker">{type === "strength" ? "Positive signals" : "Primary pressure"}</p>
+        <h2 className="mt-2 text-h3 font-semibold text-neutral-50">{title}</h2>
       </div>
 
       {insights.length === 0 ? (
@@ -25,16 +25,17 @@ export function ExecutiveInsightCards({ title, type, insights }: ExecutiveInsigh
           No executive {type} cards were generated.
         </p>
       ) : (
-        <ol className="mt-5 grid gap-3">
+        <ol className="mt-5 grid gap-0">
           {insights.map((insight, index) => (
-            <li className="border-l-2 border-border bg-background/25 p-4" key={insight.id}>
+            <li className="border-b border-border py-5 last:border-b-0" key={insight.id}>
               <div className="flex items-start gap-3">
-                <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-surface">
+                <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-surface">
                   <span className="sr-only">Insight {index + 1}</span>
                   <Icon aria-hidden="true" className="h-4 w-4 text-neutral-200" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-caption text-blue-300">0{index + 1}</span>
                     <h3 className="text-small font-semibold text-neutral-50">{insight.title}</h3>
                     <Badge variant={variant}>{insight.severityLabel} severity</Badge>
                     <Badge>{insight.trendLabel}</Badge>

@@ -12,19 +12,19 @@ export function ExecutiveDiagnosis({ viewModel }: ExecutiveDiagnosisProps) {
   return (
     <section
       aria-label="Executive diagnosis"
-      className="rounded-md border border-border bg-surface-elevated p-5 md:p-6"
+      className="premium-panel rounded-lg p-6 md:p-8"
       role="region"
     >
       <div className="flex flex-col gap-4">
         <div>
-          <p className="text-caption uppercase text-neutral-400">Executive diagnosis</p>
-          <h2 className="mt-1 text-h3 font-semibold leading-tight text-neutral-50" id="executive-diagnosis-heading">
+          <p className="premium-kicker">Executive diagnosis</p>
+          <h2 className="mt-2 text-h2 font-semibold leading-tight tracking-tight text-neutral-50" id="executive-diagnosis-heading">
             {viewModel.diagnosis.headline}
           </h2>
           <p className="mt-3 text-small text-neutral-300">{viewModel.diagnosis.summary}</p>
         </div>
 
-        <div className="grid gap-3">
+        <div className="grid gap-0 border-y border-border">
           <DiagnosisLine icon={ShieldCheck} label="Strongest area" text={viewModel.diagnosis.strongestArea} />
           <DiagnosisLine icon={Target} label="Primary pressure point" text={viewModel.diagnosis.primaryPressure} />
           <DiagnosisLine icon={Gauge} label="Evidence context" text={viewModel.diagnosis.driverContext} />
@@ -71,7 +71,7 @@ function DiagnosisLine({
   text: string;
 }) {
   return (
-    <div className="grid grid-cols-[20px_minmax(0,1fr)] gap-3 rounded-sm border border-border bg-background/40 p-3">
+    <div className="grid grid-cols-[20px_minmax(0,1fr)] gap-3 border-b border-border py-4 last:border-0">
       <Icon aria-hidden="true" className="mt-0.5 h-4 w-4 text-neutral-300" />
       <div>
         <p className="text-caption uppercase text-neutral-400">{label}</p>

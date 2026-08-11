@@ -30,34 +30,34 @@ export function HealthScorePanel({ viewModel }: HealthScorePanelProps) {
   return (
     <section
       aria-labelledby="health-score-heading"
-      className="rounded-md border border-border bg-surface-elevated p-5 md:p-6"
+      className="premium-panel relative overflow-hidden rounded-lg p-6 md:p-8"
       role="region"
     >
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-caption uppercase text-neutral-400">Executive Health Score</p>
-            <h2 className="mt-1 text-h3 font-semibold text-neutral-50" id="health-score-heading">
-              Financial condition
+            <p className="premium-kicker">Financial Health</p>
+            <h2 className="mt-2 text-h2 font-semibold tracking-tight text-neutral-50" id="health-score-heading">
+              How healthy is this company?
             </h2>
           </div>
           <Badge variant={badgeTone[viewModel.score.tone]}>{viewModel.score.classification}</Badge>
         </div>
 
         <div aria-label={viewModel.score.accessibleLabel} className="grid gap-4" role="img">
-          <div className="bg-background/35 p-4">
+          <div className="border-y border-border py-6">
             <p className="flex items-center gap-2 text-caption uppercase text-neutral-400">
               <BarChart3 aria-hidden="true" className="h-3.5 w-3.5" />
               Current period score
             </p>
-            <span className={cn("mt-3 block font-mono text-display font-semibold leading-none tabular-nums", toneClasses[viewModel.score.tone])}>
+            <span className={cn("mt-3 block font-mono text-[clamp(4.5rem,10vw,7.25rem)] font-semibold leading-none tracking-tight tabular-nums", toneClasses[viewModel.score.tone])}>
               {viewModel.score.displayValue}
             </span>
             {viewModel.score.total === null ? null : <span className="pb-1 text-small text-neutral-400">/ 100</span>}
           </div>
         </div>
 
-        <dl className="grid gap-px overflow-hidden rounded-sm border border-border bg-border sm:grid-cols-2 xl:grid-cols-3">
+        <dl className="grid gap-x-5 gap-y-4 border-t border-border pt-5 sm:grid-cols-2 xl:grid-cols-3">
           <ScoreFact label="Previous score" value={viewModel.score.previousDisplayValue} />
           <ScoreFact label="Score delta" value={viewModel.score.changeDisplay} trend={viewModel.score.trend} />
           <ScoreFact label="Analytical coverage" value={viewModel.score.coverageDisplay} />
@@ -73,7 +73,7 @@ export function HealthScorePanel({ viewModel }: HealthScorePanelProps) {
 function ScoreFact({ label, value, trend }: { label: string; value: string; trend?: string }) {
   const Icon = trend === "improving" ? ArrowUpRight : trend === "deteriorating" ? ArrowDownRight : trend ? ArrowRight : Activity;
   return (
-    <div className="bg-background/50 p-3">
+    <div className="border-l border-border pl-3 first:border-l-0 first:pl-0">
       <dt className="flex items-center gap-2 text-caption uppercase text-neutral-400">
         <Icon aria-hidden="true" className="h-3.5 w-3.5" />
         {label}

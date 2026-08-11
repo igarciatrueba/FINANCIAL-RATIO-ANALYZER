@@ -14,7 +14,7 @@ type DupontAnalysisProps = {
 
 export function DupontAnalysis({ viewModel }: DupontAnalysisProps) {
   return (
-    <div className="grid min-w-0 gap-6 premium-enter">
+    <div className="premium-workspace grid min-w-0 gap-8 premium-enter">
       <DupontContextBar viewModel={viewModel} />
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-12">

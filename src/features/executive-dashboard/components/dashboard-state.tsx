@@ -7,7 +7,7 @@ export function DashboardLoading() {
   return (
     <section
       aria-live="polite"
-      className="rounded-md border border-border bg-surface p-6"
+      className="premium-state rounded-lg p-7"
       role="status"
     >
       <div className="flex items-start gap-4">
@@ -26,7 +26,7 @@ export function DashboardLoading() {
 
 export function DashboardEmpty() {
   return (
-    <section className="rounded-md border border-border bg-surface p-6">
+    <section className="premium-state rounded-lg p-7">
       <div className="flex items-start gap-4">
         <FileInput aria-hidden="true" className="mt-1 h-5 w-5 text-information" />
         <div>
@@ -56,7 +56,7 @@ type DashboardErrorProps = {
 
 export function DashboardError({ title = "Analysis session could not be read", message }: DashboardErrorProps) {
   return (
-    <section className="rounded-md border border-danger/40 bg-danger/10 p-6" role="alert">
+    <section className="rounded-lg border border-danger/40 bg-danger/10 p-7" role="alert">
       <div className="flex items-start gap-4">
         <AlertTriangle aria-hidden="true" className="mt-1 h-5 w-5 text-danger" />
         <div>

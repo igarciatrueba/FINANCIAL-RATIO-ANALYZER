@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { ArrowDown, ArrowRight, CheckCircle2, CircleDot, Database, GitBranch, Presentation, ShieldCheck } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { buildEngineMapViewModel } from "@/features/engine-map/lib/build-engine-map-view-model";
 import type { ArchitectureLayer, EngineStage, EngineStageId } from "@/features/engine-map/types/engine-map.types";
 
@@ -28,15 +27,15 @@ export function EngineMap() {
   const selectedStage = viewModel.stages.find((stage) => stage.id === selectedStageId) ?? viewModel.stages[0];
 
   return (
-    <div className="grid min-w-0 gap-7 premium-enter">
+    <div className="premium-workspace grid min-w-0 gap-9 premium-enter">
       <section className="border-b border-border pb-5" aria-labelledby="engine-map-overview">
-        <Badge variant="info">Interactive architecture</Badge>
-        <h2 className="mt-3 text-h2 font-semibold text-neutral-50" id="engine-map-overview">One analytical engine, many experiences</h2>
+        <p className="premium-kicker">Interactive architecture</p>
+        <h2 className="mt-3 text-[clamp(2.25rem,4vw,4.25rem)] font-semibold tracking-tight text-neutral-50" id="engine-map-overview">One analytical engine, many experiences</h2>
         <p className="mt-2 max-w-3xl text-body text-neutral-300">{viewModel.overview}</p>
-        <div aria-label="Architecture summary" className="mt-5 flex flex-wrap items-center gap-2 text-small font-semibold text-neutral-200">
+        <div aria-label="Architecture summary" className="mt-7 flex flex-wrap items-center gap-2 text-small font-semibold text-neutral-200">
           {["Input", "Validate", "Derive", "Calculate", "Evaluate", "Explain", "Present"].map((item, index, items) => (
             <span className="flex items-center gap-2" key={item}>
-              <span className="rounded-sm border border-border bg-surface px-3 py-2">{item}</span>
+              <span className="border-b border-border px-3 py-2">{item}</span>
               {index < items.length - 1 ? <ArrowRight aria-hidden="true" className="h-4 w-4 text-primary" /> : null}
             </span>
           ))}
@@ -46,8 +45,8 @@ export function EngineMap() {
       <section aria-labelledby="engine-pipeline-heading">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-caption uppercase text-neutral-400">Interactive pipeline</p>
-            <h2 className="mt-1 text-h3 font-semibold text-neutral-50" id="engine-pipeline-heading">Select an analytical stage</h2>
+            <p className="premium-kicker">Interactive pipeline</p>
+            <h2 className="mt-2 text-h2 font-semibold text-neutral-50" id="engine-pipeline-heading">Select an analytical stage</h2>
           </div>
           <p className="text-small text-neutral-400">The active stage updates the technical detail below.</p>
         </div>
@@ -77,7 +76,7 @@ export function EngineMap() {
 
 function EnginePipeline({ onSelect, selectedStageId }: { onSelect: (stageId: EngineStageId) => void; selectedStageId: EngineStageId }) {
   return (
-    <div className="border border-border bg-surface p-4 md:p-5">
+    <div className="premium-panel rounded-lg p-4 md:p-5">
       <ol aria-label="Financial analysis pipeline" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {viewModel.stages.map((stage, index) => {
           const active = stage.id === selectedStageId;
@@ -86,7 +85,7 @@ function EnginePipeline({ onSelect, selectedStageId }: { onSelect: (stageId: Eng
             <li className="min-w-0" key={stage.id}>
               <button
                 aria-pressed={active}
-                className={`flex min-h-24 w-full items-start gap-3 border p-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${active ? "border-primary bg-primary/10 text-neutral-50" : "border-border bg-background/35 text-neutral-300 hover:border-neutral-500"}`}
+                className={`flex min-h-24 w-full items-start gap-3 border p-3 text-left transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${active ? "border-primary bg-primary/10 text-neutral-50 shadow-[0_0_22px_rgb(37_99_235/0.14)]" : "border-border bg-background/35 text-neutral-300 hover:border-blue-400/40 hover:bg-blue-500/5"}`}
                 onClick={() => onSelect(stage.id)}
                 type="button"
               >

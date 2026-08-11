@@ -599,11 +599,11 @@ export function FinancialInputWorkflow() {
   );
 
   return (
-    <div className="grid gap-6">
-      <section aria-label="Demo companies" className="rounded-md border border-border bg-surface p-4">
+    <div className="premium-workspace grid gap-8 premium-enter">
+      <section aria-label="Demo companies" className="premium-panel rounded-lg p-5 md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-small font-semibold text-neutral-50">Start from a fictional company or enter data manually.</p>
+            <p className="premium-kicker">Starting point</p><p className="mt-2 text-h4 font-semibold text-neutral-50">Start from a fictional company or enter data manually.</p>
             <p className="mt-1 text-caption text-neutral-400">
               Local draft persistence only. Data is not synced to any cloud service.
             </p>
@@ -611,6 +611,7 @@ export function FinancialInputWorkflow() {
           <div className="flex flex-col gap-3 sm:flex-row">
             {demoCompanies.map((demo) => (
               <Button
+                className="px-3 text-small sm:px-5"
                 key={demo.company.id}
                 onClick={() => loadDemo(demo.company.id)}
                 type="button"
@@ -631,7 +632,7 @@ export function FinancialInputWorkflow() {
         onStepChange={goToStep}
       />
 
-      <form className="grid gap-6" noValidate onChange={resumeAutosave}>
+      <form className="grid gap-8" noValidate onChange={resumeAutosave}>
         {currentStep === "company" ? <CompanyStep errors={formState.errors} register={register} /> : null}
         {currentStep !== "company" && currentStep !== "review" ? (
           <FinancialSectionStep

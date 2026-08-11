@@ -245,15 +245,15 @@ export function ScenarioLab({ baseInput, baseAnalysis, initialViewModel }: Scena
   }
 
   return (
-    <div className="grid min-w-0 gap-6 premium-enter">
+    <div className="premium-workspace grid min-w-0 gap-8 premium-enter">
       <ScenarioContextBar isBaseCase={isBaseCase} viewModel={viewModel} selectedPresetId={selectedPresetId} />
 
       {isBaseCase ? <BaseCaseState viewModel={viewModel} /> : null}
 
-      <section aria-label="Scenario setup" className="rounded-md border border-border bg-surface p-4 md:p-5">
+      <section aria-label="Scenario setup" className="premium-panel rounded-lg p-5 md:p-7">
         <div className="grid gap-5 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
           <div>
-            <p className="text-caption uppercase text-neutral-400">Preset selector</p>
+            <p className="premium-kicker">Scenario setup</p>
             <label className="mt-2 block text-small font-semibold text-neutral-50" htmlFor="scenario-preset">
               Preset scenario
             </label>
@@ -352,7 +352,7 @@ function ScenarioContextBar({
   const scenarioStatus = isBaseCase ? "Base Case" : selectedPresetId === "custom" ? "Custom scenario" : selectPresetLabel(selectedPresetId);
 
   return (
-    <section aria-label="Scenario context" className="rounded-md border border-border bg-surface p-4">
+    <section aria-label="Scenario context" className="premium-panel rounded-lg p-5">
       <div className="flex flex-col gap-4">
         <div className="grid gap-4 lg:grid-cols-[minmax(18rem,1fr)_auto] lg:items-center">
           <div className="min-w-0">
@@ -415,7 +415,7 @@ function ContextItem({ label, value }: { label: string; value: string }) {
 
 function BaseCaseState({ viewModel }: { viewModel: ScenarioComparisonViewModel }) {
   return (
-    <section aria-label="Base Case active" className="border-y border-border bg-surface-elevated px-4 py-4 md:px-5">
+    <section aria-label="Base Case active" className="border-y border-border bg-surface-elevated px-4 py-5 md:px-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-caption uppercase text-neutral-400">Base Case active</p>
@@ -467,7 +467,7 @@ function ScenarioControl({
       : formatFinancialValue({ value: baseValue, unit: "currency", currency: baseInput.company.currency }).display;
 
   return (
-    <div className="rounded-sm border border-border bg-background/35 p-3">
+    <div className="border-t border-border bg-background/20 p-4 first:border-t-0">
       <label className="block text-small font-semibold text-neutral-50" htmlFor={`scenario-${control.id}`}>
         {control.label}
       </label>
@@ -521,7 +521,7 @@ function ScenarioInvalidState({ state }: { state: Exclude<ReturnType<typeof buil
 
 function HealthScoreImpact({ viewModel }: { viewModel: ScenarioComparisonViewModel }) {
   return (
-    <section aria-label="Health score impact" className="rounded-md border border-border bg-surface p-5">
+    <section aria-label="Health score impact" className="premium-panel rounded-lg p-6 md:p-8">
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_minmax(0,1fr)] lg:items-center">
         <ScoreCase label="Base Case" score={viewModel.score.base.display} classification={viewModel.score.base.classification} />
         <div aria-hidden="true" className="hidden text-h2 text-neutral-500 lg:block">
@@ -532,9 +532,9 @@ function HealthScoreImpact({ viewModel }: { viewModel: ScenarioComparisonViewMod
           score={viewModel.score.scenario.display}
           classification={viewModel.score.scenario.classification}
         />
-        <div className="rounded-sm border border-border bg-background/35 p-4">
-          <p className="text-caption uppercase text-neutral-400">Scenario impact</p>
-          <p className="mt-1 font-mono text-h3 font-semibold tabular-nums text-neutral-50">{viewModel.score.delta.display}</p>
+        <div className="border-l border-border pl-4">
+          <p className="premium-kicker">Scenario impact</p>
+          <p className="mt-2 font-mono text-[clamp(2rem,4vw,3.5rem)] font-semibold leading-none tabular-nums text-blue-200">{viewModel.score.delta.display}</p>
           <p className="mt-2 text-small text-neutral-300">{viewModel.score.headline}</p>
           <p className="mt-2 text-caption text-neutral-400">
             Coverage: {viewModel.score.base.coverageDisplay} Base Case / {viewModel.score.scenario.coverageDisplay} Scenario Case
@@ -547,9 +547,9 @@ function HealthScoreImpact({ viewModel }: { viewModel: ScenarioComparisonViewMod
 
 function ScoreCase({ classification, label, score }: { classification: string; label: string; score: string }) {
   return (
-    <div className="rounded-sm border border-border bg-background/35 p-4">
-      <p className="text-caption uppercase text-neutral-400">{label}</p>
-      <p className="mt-1 font-mono text-h2 font-semibold tabular-nums text-neutral-50">{score}</p>
+    <div className="border-y border-border py-5">
+      <p className="premium-kicker">{label}</p>
+      <p className="mt-3 font-mono text-[clamp(3rem,6vw,5rem)] font-semibold leading-none tabular-nums text-neutral-50">{score}</p>
       <Badge className="mt-2">{classification}</Badge>
     </div>
   );
@@ -584,8 +584,8 @@ function ScenarioDimensionChart({
 
 function KeyMetricComparison({ viewModel }: { viewModel: ScenarioComparisonViewModel }) {
   return (
-    <section aria-label="Key metric comparison" className="rounded-md border border-border bg-surface p-4 md:p-5">
-      <h2 className="text-h4 font-semibold text-neutral-50">Key metric comparison</h2>
+    <section aria-label="Key metric comparison" className="border-y border-border py-6">
+      <p className="premium-kicker">Scenario evidence</p><h2 className="mt-2 text-h3 font-semibold text-neutral-50">Key metric comparison</h2>
       <div className="mt-4 overflow-x-auto">
         <table className="min-w-[820px] w-full border-collapse text-left text-small">
           <thead className="text-caption uppercase text-neutral-400">

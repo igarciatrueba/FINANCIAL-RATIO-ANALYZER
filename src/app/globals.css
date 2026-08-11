@@ -88,6 +88,21 @@ main section { scroll-margin-top: 132px; }
 .premium-rule { border-color: rgb(167 176 192 / 0.14); }
 .tabular-nums { font-variant-numeric: tabular-nums; }
 .premium-kicker { color: #60a5fa; font-family: var(--font-mono); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.premium-cursor-glow { position: fixed; top: 0; left: 0; z-index: -1; width: 34rem; height: 34rem; margin: -17rem 0 0 -17rem; pointer-events: none; border-radius: 999px; background: radial-gradient(circle, rgb(37 99 235 / 0.14), rgb(59 130 246 / 0.05) 38%, transparent 70%); filter: blur(52px); will-change: transform; }
+.premium-page-intro { position: relative; margin-bottom: 3.5rem; padding: 1.1rem 0 2.1rem; border-bottom: 1px solid rgb(167 176 192 / 0.14); }
+.premium-page-intro::after { position: absolute; bottom: -1px; left: 0; width: 7rem; height: 1px; content: ""; background: #2563eb; box-shadow: 0 0 18px rgb(37 99 235 / 0.64); }
+.premium-workspace > section { border-color: rgb(167 176 192 / 0.14); }
+.premium-workspace .bg-surface { background-color: rgb(14 18 24 / 0.78); }
+.premium-workspace .rounded-md { border-radius: 8px; }
+.premium-state { border: 1px solid rgb(96 165 250 / 0.22); background: rgb(14 18 24 / 0.82); box-shadow: var(--shadow-2); }
+.premium-metric-strip { display: grid; overflow: hidden; border-top: 1px solid rgb(167 176 192 / 0.14); border-bottom: 1px solid rgb(167 176 192 / 0.14); }
+
+details { transition: border-color 180ms ease, background-color 180ms ease; }
+details[open] { border-color: rgb(96 165 250 / 0.3); }
+summary::marker { color: #60a5fa; }
+input, select, textarea { transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease; }
+input:hover, select:hover, textarea:hover { border-color: rgb(96 165 250 / 0.35); }
+input:focus, select:focus, textarea:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgb(37 99 235 / 0.16); outline: none; }
 
 @keyframes premium-ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @keyframes premium-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
@@ -98,6 +113,8 @@ main section { scroll-margin-top: 132px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 }
+
+@media (pointer: coarse), (max-width: 767px) { .premium-cursor-glow { display: none; } }
 
 @media print {
   :root, body { background: #fff !important; color: #111827 !important; }

@@ -12,12 +12,12 @@ export function DimensionOverview({ dimensions }: DimensionOverviewProps) {
   return (
     <section
       aria-label="Financial dimensions"
-      className="rounded-md border border-border bg-surface p-5 md:p-6"
+      className="border-y border-border py-6"
       role="region"
     >
       <div>
-        <p className="text-caption uppercase text-neutral-400">Financial dimensions</p>
-        <h2 className="mt-1 text-h4 font-semibold text-neutral-50" id="financial-dimensions-heading">
+        <p className="premium-kicker">Financial dimensions</p>
+        <h2 className="mt-2 text-h3 font-semibold text-neutral-50" id="financial-dimensions-heading">
           Score composition
         </h2>
       </div>
@@ -26,7 +26,7 @@ export function DimensionOverview({ dimensions }: DimensionOverviewProps) {
         {dimensions.map((dimension) => (
           <article
             aria-label={dimension.accessibleLabel}
-            className="grid gap-3 rounded-sm border border-border bg-background/35 p-4 lg:grid-cols-[160px_minmax(0,1fr)_220px]"
+            className="grid gap-3 border-t border-border py-4 first:border-t-0 lg:grid-cols-[160px_minmax(0,1fr)_220px]"
             key={dimension.id}
           >
             <div>
@@ -56,7 +56,7 @@ export function DimensionOverview({ dimensions }: DimensionOverviewProps) {
                   <div
                     className={cn(
                       "h-2 rounded-sm",
-                      dimension.tone === "strong" && "bg-success",
+                      dimension.tone === "strong" && "bg-primary",
                       dimension.tone === "healthy" && "bg-information",
                       dimension.tone === "moderate" && "bg-warning",
                       dimension.tone === "weak" && "bg-warning",

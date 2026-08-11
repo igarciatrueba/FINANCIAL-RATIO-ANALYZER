@@ -9,23 +9,23 @@ type KpiSummaryProps = {
 
 export function KpiSummary({ kpis }: KpiSummaryProps) {
   return (
-    <section aria-label="KPI summary" className="rounded-md border border-border bg-surface p-4 md:p-5" role="region">
+    <section aria-label="KPI summary" className="border-y border-border py-6" role="region">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-caption uppercase text-neutral-400">KPI summary</p>
-          <h2 className="mt-1 text-h4 font-semibold text-neutral-50" id="kpi-summary-heading">
-            Core financial indicators
+          <p className="premium-kicker">Key operating metrics</p>
+          <h2 className="mt-2 text-h3 font-semibold text-neutral-50" id="kpi-summary-heading">
+            Current evidence, compared with the prior year
           </h2>
         </div>
         <p className="text-caption text-neutral-400">Current period with prior-period movement</p>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-sm border border-border">
+      <div className="premium-metric-strip mt-6">
         <div className="grid divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0">
           {kpis.map((kpi) => (
             <article
               aria-label={kpi.accessibleStatus}
-              className={cn("min-w-0 bg-background/25 p-3", kpi.emphasized && "bg-surface-elevated")}
+              className={cn("min-w-0 py-5 md:px-5", kpi.emphasized && "bg-blue-500/5")}
               key={kpi.id}
             >
               <div className="flex items-center justify-between gap-2">
@@ -36,7 +36,7 @@ export function KpiSummary({ kpis }: KpiSummaryProps) {
                 <DirectionBadge direction={kpi.direction} />
               </div>
 
-              <p className="mt-3 font-mono text-h4 font-semibold leading-none tabular-nums text-neutral-50">
+              <p className="mt-4 font-mono text-[clamp(1.8rem,3vw,2.8rem)] font-semibold leading-none tabular-nums text-neutral-50">
                 <span title={kpi.currentValue.title}>{kpi.currentValue.display}</span>
               </p>
               <dl className="mt-3 grid gap-1.5 text-caption">

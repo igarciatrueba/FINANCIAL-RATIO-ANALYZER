@@ -38,6 +38,7 @@ describe("Phase 4 financial input workflow", () => {
 
     expect(screen.getByRole("heading", { name: /balance sheet/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/compact workflow progress/i)).toHaveTextContent("Step 3 of 6");
+    expect(workflowNav.querySelector(".input-progress-timeline")).toBeInTheDocument();
   });
 
   it("keeps visible labels and renders three annual values for every financial concept", async () => {

@@ -152,11 +152,12 @@ function WorkflowNavigation({
 
   return (
     <div className="sticky top-20 z-30 border-b border-border bg-background/95 py-3 backdrop-blur-xl md:top-24">
-      <div aria-label="Compact workflow progress" className="mb-3 text-caption font-semibold uppercase text-neutral-400 md:hidden">
-        Step {currentIndex + 1} of {workflowSteps.length}: {sectionLabels[currentStep]}
+      <div aria-label="Compact workflow progress" className="mb-3 flex items-center justify-between gap-3 md:hidden">
+        <span className="text-caption font-semibold uppercase text-neutral-400">Step {currentIndex + 1} of {workflowSteps.length}: {sectionLabels[currentStep]}</span>
+        <span aria-hidden="true" className="h-1.5 w-20 overflow-hidden rounded-full bg-surface"><span className="block h-full bg-primary" style={{ width: `${((currentIndex + 1) / workflowSteps.length) * 100}%` }} /></span>
       </div>
       <nav aria-label="Financial input workflow">
-        <ol className="grid gap-2 md:grid-cols-6">
+        <ol className="input-progress-timeline hidden gap-0 md:grid md:grid-cols-6">
           {workflowSteps.map((step, index) => {
             const isCurrent = step.id === currentStep;
             const hasError = issueCountForStep(issues, step.id) > 0;
@@ -165,13 +166,13 @@ function WorkflowNavigation({
             const Icon = hasError ? AlertTriangle : isComplete ? CheckCircle2 : Circle;
 
             return (
-              <li key={step.id}>
+              <li className="relative min-w-0" key={step.id}>
                 <button
                   aria-current={isCurrent ? "step" : undefined}
                   className={cn(
-                    "flex min-h-12 w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-small font-semibold transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                    "relative z-10 flex min-h-14 w-full items-center gap-2 border-y border-transparent px-3 py-2 text-left text-small font-semibold transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
                     isCurrent && "border-primary bg-primary/10 text-neutral-50",
-                    !isCurrent && !hasError && "border-border bg-surface text-neutral-300 hover:bg-surface-elevated",
+                    !isCurrent && !hasError && "text-neutral-300 hover:bg-surface-elevated",
                     hasError && "border-danger/60 bg-danger/10 text-neutral-50"
                   )}
                   onClick={() => onStepChange(step.id)}
@@ -181,11 +182,11 @@ function WorkflowNavigation({
                     aria-hidden="true"
                     className={cn("h-4 w-4", hasError ? "text-danger" : isComplete ? "text-success" : "text-primary")}
                   />
+                  <span aria-hidden="true" className="font-mono text-caption text-neutral-500">0{index + 1}</span>
                   <span className="min-w-0">
-                    <span className="block truncate">{step.label}</span>
+                    <span className="block leading-tight">{step.label}</span>
                     <span className="block text-caption font-medium text-neutral-400">{stateLabel}</span>
                   </span>
-                  <span className="sr-only">{index + 1}</span>
                 </button>
               </li>
             );
@@ -331,6 +332,7 @@ function FinancialSectionStep({
           financial situation requires them.
         </p>
         <div className="grid gap-5">
+          <div className="hidden grid-cols-[minmax(12rem,1fr)_repeat(3,minmax(0,1fr))] gap-4 border-b border-border pb-3 text-caption font-semibold uppercase tracking-[0.08em] text-neutral-400 md:grid"><span>Financial concept</span>{years.map((year, index) => <span key={`${year}-${index}`}>{year.trim() || `Period ${index + 1}`} <span className="block font-normal text-neutral-500">{index === 0 ? "Prior 2" : index === 1 ? "Prior" : "Current"}</span></span>)}</div>
           {financialFieldGroups[step].map((field) => (
             <fieldset
               className="rounded-md border border-border bg-background p-4"
@@ -354,7 +356,7 @@ function FinancialSectionStep({
                       helperText={periodIndex === 0 ? field.helperText : undefined}
                       id={id}
                       key={path}
-                      label={`${field.label} ${yearLabel}`}
+                      label={`${field.label} ${yearLabel}${periodIndex === 0 ? " (Prior 2)" : periodIndex === 1 ? " (Prior)" : " (Current)"}`}
                     >
                       <input
                         {...register(path, {
@@ -594,8 +596,8 @@ export function FinancialInputWorkflow() {
   }
 
   const navigationIssues = useMemo(
-    () => [...reviewFeedback.errors, ...reviewFeedback.warnings],
-    [reviewFeedback.errors, reviewFeedback.warnings]
+    () => (formState.isDirty || isReview ? [...reviewFeedback.errors, ...reviewFeedback.warnings] : []),
+    [formState.isDirty, isReview, reviewFeedback.errors, reviewFeedback.warnings]
   );
 
   return (

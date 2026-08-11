@@ -75,18 +75,21 @@ export function EngineMap() {
 }
 
 function EnginePipeline({ onSelect, selectedStageId }: { onSelect: (stageId: EngineStageId) => void; selectedStageId: EngineStageId }) {
+  const selectedConnections = new Set(viewModel.connections.filter((connection) => connection.from === selectedStageId || connection.to === selectedStageId).flatMap((connection) => [connection.from, connection.to]));
   return (
-    <div className="premium-panel rounded-lg p-4 md:p-5">
-      <ol aria-label="Financial analysis pipeline" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="engine-map-canvas premium-panel overflow-hidden rounded-lg p-4 md:p-6">
+      <ol aria-label="Financial analysis pipeline" className="engine-map-flow grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {viewModel.stages.map((stage, index) => {
           const active = stage.id === selectedStageId;
+          const connected = selectedConnections.has(stage.id);
           const Icon = layerIcon[stage.layer];
           return (
             <li className="min-w-0" key={stage.id}>
               <button
                 aria-pressed={active}
-                className={`flex min-h-24 w-full items-start gap-3 border p-3 text-left transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${active ? "border-primary bg-primary/10 text-neutral-50 shadow-[0_0_22px_rgb(37_99_235/0.14)]" : "border-border bg-background/35 text-neutral-300 hover:border-blue-400/40 hover:bg-blue-500/5"}`}
+                className={`engine-map-node flex min-h-24 w-full items-start gap-3 border p-3 text-left transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${active ? "is-active border-primary bg-primary/10 text-neutral-50 shadow-[0_0_22px_rgb(37_99_235/0.14)]" : connected ? "is-connected border-blue-400/45 bg-blue-500/5 text-neutral-200" : "border-border bg-background/35 text-neutral-300 hover:border-blue-400/40 hover:bg-blue-500/5"}`}
                 onClick={() => onSelect(stage.id)}
+                onMouseEnter={() => onSelect(stage.id)}
                 type="button"
               >
                 <Icon aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -100,7 +103,7 @@ function EnginePipeline({ onSelect, selectedStageId }: { onSelect: (stageId: Eng
           );
         })}
       </ol>
-      <p className="mt-4 border-t border-border pt-3 text-caption text-neutral-400">Connections: input flows through validation, deterministic domain logic and orchestration before presentation-only consumers.</p>
+      <p className="mt-5 border-t border-border pt-3 text-caption text-neutral-400">Connections: input flows through validation, deterministic domain logic and orchestration before presentation-only consumers. Select a node to trace its immediate path.</p>
     </div>
   );
 }
@@ -129,13 +132,13 @@ function DetailList({ label, values }: { label: string; values: string[] }) {
 
 function ScenarioReuse() {
   return (
-    <section aria-labelledby="scenario-reuse-heading" className="border border-border bg-surface p-4 md:p-5">
+    <section aria-labelledby="scenario-reuse-heading" className="scenario-reuse-map border border-border bg-surface p-4 md:p-5">
       <p className="text-caption uppercase text-neutral-400">Scenario reuse</p>
       <h2 className="mt-1 text-h4 font-semibold text-neutral-50" id="scenario-reuse-heading">Scenario Lab shares the analytical engine</h2>
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+      <div className="mt-4 grid gap-2">
         {viewModel.scenarioReuse.steps.map((step, index) => (
-          <div className={`flex items-center gap-2 border p-3 text-small ${step === "Same analysis engine" ? "border-primary bg-primary/10 font-semibold text-neutral-50" : "border-border bg-background/35 text-neutral-200"}`} key={step}>
-            <span className="font-mono text-caption text-neutral-400">{index + 1}</span>{step}
+          <div className={`scenario-reuse-step flex items-center gap-3 border p-3 text-small ${step === "Same analysis engine" ? "border-primary bg-primary/10 font-semibold text-neutral-50" : "border-border bg-background/35 text-neutral-200"}`} key={step}>
+            <span className="font-mono text-caption text-neutral-400">{index + 1}</span><span>{step}</span>
           </div>
         ))}
       </div>

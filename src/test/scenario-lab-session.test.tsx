@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -92,15 +92,34 @@ describe("Phase 8 Scenario Lab session integration", () => {
     expect(screen.getAllByText(/Revenue growth: \+15%/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/EBIT margin target: 28%/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/operating sensitivity, not a complete income-statement forecast/i)).toBeInTheDocument();
-    expect(screen.getByDisplayValue("15")).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: /revenue growth/i })).toHaveValue(15);
 
-    await user.clear(screen.getByLabelText(/revenue growth/i));
-    await user.type(screen.getByLabelText(/revenue growth/i), "12");
+    await user.clear(screen.getByRole("spinbutton", { name: /revenue growth/i }));
+    await user.type(screen.getByRole("spinbutton", { name: /revenue growth/i }), "12");
 
     expect(screen.getAllByText("Custom").length).toBeGreaterThan(0);
     expect(screen.getByRole("status", { name: /scenario validation status/i })).toHaveTextContent(/scenario recalculated/i);
     expect(screen.getByText("Custom scenario")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /health score impact/i })).toBeInTheDocument();
+  });
+
+  it("keeps each premium range control synchronized with its keyboard-editable numeric assumption", async () => {
+    const user = userEvent.setup();
+    storeDemoSession("novatech-solutions");
+
+    render(<ScenarioSessionBoundary />);
+
+    await screen.findByText("NovaTech Solutions");
+    const numeric = screen.getByRole("spinbutton", { name: /^revenue growth$/i });
+    const range = screen.getByRole("slider", { name: /adjust revenue growth scenario assumption/i });
+
+    expect(range).toHaveAttribute("type", "range");
+    await user.clear(numeric);
+    await user.type(numeric, "15");
+    expect(range).toHaveValue("15");
+
+    fireEvent.change(range, { target: { value: "16" } });
+    expect(numeric).toHaveValue(16);
   });
 
   it("returns to the inactive Base Case state after a manual assumption is restored", async () => {
@@ -110,13 +129,13 @@ describe("Phase 8 Scenario Lab session integration", () => {
     render(<ScenarioSessionBoundary />);
 
     await screen.findByText("NovaTech Solutions");
-    await user.clear(screen.getByLabelText(/total debt/i));
-    await user.type(screen.getByLabelText(/total debt/i), "-19");
+    await user.clear(screen.getByRole("spinbutton", { name: /total debt/i }));
+    await user.type(screen.getByRole("spinbutton", { name: /total debt/i }), "-19");
     expect(screen.getByText("Custom scenario")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /health score impact/i })).toBeInTheDocument();
 
-    await user.clear(screen.getByLabelText(/total debt/i));
-    await user.type(screen.getByLabelText(/total debt/i), "0");
+    await user.clear(screen.getByRole("spinbutton", { name: /total debt/i }));
+    await user.type(screen.getByRole("spinbutton", { name: /total debt/i }), "0");
 
     expect(screen.getByText("Base Case active")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /view base case analytical reference/i }).closest("details")).not.toHaveAttribute("open");
@@ -137,8 +156,8 @@ describe("Phase 8 Scenario Lab session integration", () => {
     await user.click(screen.getByRole("button", { name: /reset to base case/i }));
 
     expect(screen.getByLabelText(/preset scenario/i)).toHaveValue("base");
-    expect(screen.getByLabelText(/revenue growth/i)).toHaveValue(0);
-    expect(screen.getByLabelText(/total debt/i)).toHaveValue(0);
+    expect(screen.getByRole("spinbutton", { name: /revenue growth/i })).toHaveValue(0);
+    expect(screen.getByRole("spinbutton", { name: /total debt/i })).toHaveValue(0);
     expect(screen.getByText("Base Case active")).toBeInTheDocument();
   });
 
@@ -149,10 +168,10 @@ describe("Phase 8 Scenario Lab session integration", () => {
     render(<ScenarioSessionBoundary />);
 
     await screen.findByText("Atlas Manufacturing Group");
-    await user.clear(screen.getByLabelText(/current assets/i));
-    await user.type(screen.getByLabelText(/current assets/i), "-80");
-    await user.clear(screen.getByLabelText(/^inventory/i));
-    await user.type(screen.getByLabelText(/^inventory/i), "20");
+    await user.clear(screen.getByRole("spinbutton", { name: /current assets/i }));
+    await user.type(screen.getByRole("spinbutton", { name: /current assets/i }), "-80");
+    await user.clear(screen.getByRole("spinbutton", { name: /^inventory/i }));
+    await user.type(screen.getByRole("spinbutton", { name: /^inventory/i }), "20");
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/inventory cannot exceed current assets/i);

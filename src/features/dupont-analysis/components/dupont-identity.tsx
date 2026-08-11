@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import type { DupontAnalysisViewModel } from "@/features/dupont-analysis/types/dupont.types";
 
 type DupontIdentityProps = {
@@ -18,7 +20,7 @@ export function DupontIdentity({ viewModel }: DupontIdentityProps) {
       <p className="sr-only">{viewModel.identity.text}</p>
       <div className="mt-7 grid min-w-0 gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] lg:items-stretch">
         {viewModel.identity.factors.map((factor, index) => (
-          <div className="contents" key={factor.id}>
+          <div className="contents premium-dupont-reveal" key={factor.id} style={{ "--dupont-delay": `${index * 100}ms` } as CSSProperties}>
             <article className="min-w-0 border-t border-border py-5 lg:border-y lg:px-4">
               <p className="premium-kicker">{factor.label}</p>
               <p className="mt-3 font-mono text-[clamp(2rem,4vw,3.5rem)] font-semibold leading-none text-neutral-50">{factor.current.display}</p>
@@ -29,17 +31,17 @@ export function DupontIdentity({ viewModel }: DupontIdentityProps) {
               </p>
             </article>
             {index < viewModel.identity.factors.length - 1 ? (
-              <div className="flex items-center justify-center text-h2 text-blue-300" aria-hidden="true">
+              <div className="premium-dupont-reveal flex items-center justify-center text-h2 text-blue-300" aria-hidden="true" style={{ "--dupont-delay": `${index * 100 + 60}ms` } as CSSProperties}>
                 ×
               </div>
             ) : (
-              <div className="flex items-center justify-center text-h2 text-blue-300" aria-hidden="true">
+              <div className="premium-dupont-reveal flex items-center justify-center text-h2 text-blue-300" aria-hidden="true" style={{ "--dupont-delay": `${index * 100 + 60}ms` } as CSSProperties}>
                 =
               </div>
             )}
           </div>
         ))}
-        <article className="min-w-0 border border-primary/40 bg-primary/10 p-5">
+        <article className="premium-dupont-reveal min-w-0 border border-primary/40 bg-primary/10 p-5" style={{ "--dupont-delay": "360ms" } as CSSProperties}>
           <p className="premium-kicker">Return on Equity</p>
           <p className="mt-3 font-mono text-[clamp(2rem,4vw,3.5rem)] font-semibold leading-none text-neutral-50">{viewModel.identity.result.display}</p>
           <p className="mt-3 text-small text-neutral-200">Current ROE produced by the factor product.</p>

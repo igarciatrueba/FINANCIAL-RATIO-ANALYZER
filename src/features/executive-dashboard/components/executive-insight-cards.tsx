@@ -1,5 +1,3 @@
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
-
 import { Badge } from "@/components/ui/badge";
 import type { DashboardInsightViewModel } from "@/features/executive-dashboard/types/dashboard.types";
 
@@ -10,7 +8,6 @@ type ExecutiveInsightCardsProps = {
 };
 
 export function ExecutiveInsightCards({ title, type, insights }: ExecutiveInsightCardsProps) {
-  const Icon = type === "strength" ? CheckCircle2 : AlertTriangle;
   const variant = type === "strength" ? "success" : "danger";
 
   return (
@@ -28,25 +25,21 @@ export function ExecutiveInsightCards({ title, type, insights }: ExecutiveInsigh
         <ol className="mt-5 grid gap-0">
           {insights.map((insight, index) => (
             <li className="border-b border-border py-5 last:border-b-0" key={insight.id}>
-              <div className="flex items-start gap-3">
-                <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-surface">
-                  <span className="sr-only">Insight {index + 1}</span>
-                  <Icon aria-hidden="true" className="h-4 w-4 text-neutral-200" />
-                </div>
+              <div className="grid gap-3 sm:grid-cols-[3rem_minmax(0,1fr)]">
+                <div className="font-mono text-[1.8rem] font-semibold leading-none text-blue-300" aria-hidden="true">0{index + 1}</div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-caption text-blue-300">0{index + 1}</span>
                     <h3 className="text-small font-semibold text-neutral-50">{insight.title}</h3>
                     <Badge variant={variant}>{insight.severityLabel} severity</Badge>
                     <Badge>{insight.trendLabel}</Badge>
                   </div>
                   <p className="mt-2 text-small text-neutral-300">{insight.explanation}</p>
-                  <dl className="mt-4 grid gap-3 text-caption md:grid-cols-[0.8fr_minmax(0,2fr)]">
-                    <div className="bg-surface/45 p-3">
+                  <dl className="mt-4 grid gap-3 border-t border-border pt-3 text-caption md:grid-cols-[0.8fr_minmax(0,2fr)]">
+                    <div>
                       <dt className="uppercase text-neutral-400">Affected year</dt>
                       <dd className="mt-1 font-semibold text-neutral-100">{insight.affectedYear}</dd>
                     </div>
-                    <div className="bg-surface/45 p-3">
+                    <div>
                       <dt className="uppercase text-neutral-400">Evidence</dt>
                       <dd className="mt-1 grid gap-1 font-semibold text-neutral-100">
                         {insight.evidence.length > 0

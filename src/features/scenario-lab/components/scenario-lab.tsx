@@ -467,11 +467,12 @@ function ScenarioControl({
       : formatFinancialValue({ value: baseValue, unit: "currency", currency: baseInput.company.currency }).display;
 
   return (
-    <div className="border-t border-border bg-background/20 p-4 first:border-t-0">
+    <div className="scenario-control border-t border-border bg-background/20 p-4 first:border-t-0">
       <label className="block text-small font-semibold text-neutral-50" htmlFor={`scenario-${control.id}`}>
         {control.label}
       </label>
-      <div className="mt-2 flex items-center gap-2">
+      <p className="mt-2 text-caption uppercase tracking-[0.08em] text-neutral-500">Base Case <span className="ml-2 font-mono text-neutral-200">{displayBase}</span></p>
+      <div className="mt-3 flex items-center gap-2">
         <input
           aria-describedby={`scenario-${control.id}-hint`}
           className="min-h-11 min-w-0 flex-1 rounded-sm border border-border bg-surface px-3 font-mono text-small tabular-nums text-neutral-50"
@@ -485,13 +486,8 @@ function ScenarioControl({
         />
         <span className="text-small text-neutral-300">{control.unit}</span>
       </div>
-      <p className="mt-2 text-caption text-neutral-400">
-        Base Case: <span className="font-mono tabular-nums text-neutral-200">{displayBase}</span>
-      </p>
-      <p className="mt-1 text-caption text-neutral-400">
-        Range: {control.min} to {control.max}
-        {control.unit}
-      </p>
+      <input aria-label={`Adjust ${control.label} scenario assumption`} className="scenario-range mt-4 w-full" max={control.max} min={control.min} onChange={(event) => onChange(control.id, event.target.value)} step={control.step} type="range" value={value === "" ? 0 : value} />
+      <div className="mt-1 flex justify-between font-mono text-caption tabular-nums text-neutral-500"><span>{control.min}{control.unit}</span><span>Scenario assumption</span><span>{control.max}{control.unit}</span></div>
       <p className="mt-2 text-caption text-neutral-300" id={`scenario-${control.id}-hint`}>
         {control.meaning}
       </p>
@@ -528,6 +524,7 @@ function HealthScoreImpact({ viewModel }: { viewModel: ScenarioComparisonViewMod
           →
         </div>
         <ScoreCase
+          animate
           label="Scenario Case"
           score={viewModel.score.scenario.display}
           classification={viewModel.score.scenario.classification}
@@ -545,9 +542,9 @@ function HealthScoreImpact({ viewModel }: { viewModel: ScenarioComparisonViewMod
   );
 }
 
-function ScoreCase({ classification, label, score }: { classification: string; label: string; score: string }) {
+function ScoreCase({ animate = false, classification, label, score }: { animate?: boolean; classification: string; label: string; score: string }) {
   return (
-    <div className="border-y border-border py-5">
+    <div className={`border-y border-border py-5 ${animate ? "premium-score-shift" : ""}`}>
       <p className="premium-kicker">{label}</p>
       <p className="mt-3 font-mono text-[clamp(3rem,6vw,5rem)] font-semibold leading-none tabular-nums text-neutral-50">{score}</p>
       <Badge className="mt-2">{classification}</Badge>
@@ -628,19 +625,19 @@ function ScenarioInsights({ viewModel }: { viewModel: ScenarioComparisonViewMode
   ];
 
   return (
-    <section aria-label="Updated scenario insights" className="rounded-md border border-border bg-surface p-4 md:p-5">
-      <h2 className="text-h4 font-semibold text-neutral-50">Updated scenario insights</h2>
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+    <section aria-label="Updated scenario insights" className="border-y border-border py-6">
+      <p className="premium-kicker">Scenario evidence</p><h2 className="mt-2 text-h3 font-semibold text-neutral-50">Updated scenario insights</h2>
+      <div className="mt-5 grid gap-x-8 gap-y-6 lg:grid-cols-2">
         {groups.map((group) => (
           <div className="border-t border-border pt-3" key={group.title}>
             <h3 className="text-body font-semibold text-neutral-50">{group.title}</h3>
             {group.items.length === 0 ? (
               <p className="mt-2 text-small text-neutral-400">No insight change in this group.</p>
             ) : (
-              <ul className="mt-2 grid gap-3">
-                {group.items.slice(0, 3).map((insight) => (
-                  <li className="rounded-sm bg-background/35 p-3" key={insight.id}>
-                    <p className="font-semibold text-neutral-50">{insight.title}</p>
+              <ol className="mt-2 grid gap-0">
+                {group.items.slice(0, 3).map((insight, index) => (
+                  <li className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3 border-b border-border py-4 last:border-b-0" key={insight.id}>
+                    <span className="font-mono text-small text-blue-300">0{index + 1}</span><div><p className="font-semibold text-neutral-50">{insight.title}</p>
                     <p className="mt-1 text-small text-neutral-300">{insight.explanation}</p>
                     <p className="mt-2 text-caption uppercase text-neutral-400">
                       Severity: {insight.severityLabel} · Trend: {insight.trendLabel} · Year: {insight.affectedYear}
@@ -653,10 +650,10 @@ function ScenarioInsights({ viewModel }: { viewModel: ScenarioComparisonViewMode
                           </li>
                         ))}
                       </ul>
-                    ) : null}
+                    ) : null}</div>
                   </li>
                 ))}
-              </ul>
+              </ol>
             )}
           </div>
         ))}

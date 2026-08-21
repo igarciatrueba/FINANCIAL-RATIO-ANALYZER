@@ -1,14 +1,13 @@
-import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  plugins: [react()],
   test: {
-    environment: "jsdom",
+    environment: "node",
+    include: ["src/test/backend-*.test.ts"],
+    pool: "forks",
+    maxWorkers: 1,
+    fileParallelism: false,
     testTimeout: 30_000,
-    globals: true,
-    setupFiles: ["./src/test/setup.ts"],
-    css: true,
   },
   resolve: {
     alias: {

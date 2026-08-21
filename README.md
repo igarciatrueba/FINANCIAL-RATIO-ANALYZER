@@ -47,11 +47,13 @@ Read [docs/methodology.md](docs/methodology.md), [formulas](docs/formulas.md), [
 
 ## Technology stack
 
-Next.js, React, TypeScript, Tailwind CSS, ECharts, React Hook Form, Zod, Vitest and Testing Library.
+Next.js, React, TypeScript, Tailwind CSS, ECharts, React Hook Form, Zod, Vitest and Testing Library. The approved persistence foundation adds PostgreSQL, Drizzle ORM, Supabase Auth/Storage integration boundaries and PGlite clean-database tests.
 
 ## Repository structure
 
 `src/app` routes · `src/domain` pure analytical logic · `src/features` product experiences · `src/components` shared UI · `src/test` automated checks · `docs` methodology · `assets` repository media.
+
+The account/workspace backend lives in `src/server`: typed schema and migrations, server-side authorization, versioned financial datasets, analysis history, scenarios, private file metadata and activity events. It is intentionally not wired into the current frontend until a dedicated account experience is approved.
 
 ## Getting started
 
@@ -68,6 +70,19 @@ npm run lint
 npm run test
 npm run build
 ```
+
+## Persistent workspace backend
+
+The backend architecture, ERD, authorization matrix, environment requirements, local setup and external production-provisioning boundaries are documented in [docs/backend/accounts-and-persistence-architecture.md](docs/backend/accounts-and-persistence-architecture.md). To use a locally provisioned PostgreSQL database:
+
+```bash
+npm run db:migrate
+npm run db:seed
+npm run db:check
+npm run db:test
+```
+
+Copy `.env.example` to local environment configuration and set real provider/database values before these commands. No cloud database, Supabase project, authentication provider or private storage bucket is provisioned by this repository.
 
 Phase 10 validation records the current test count in the final QA report; this count will naturally grow as coverage evolves.
 

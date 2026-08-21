@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 
 import type { FinancialAnalysisInput, ScenarioAssumptions } from "@/domain";
@@ -37,7 +38,10 @@ export const workspaces = pgTable("workspaces", {
   createdAt: createdAt(),
   updatedAt: updatedAt(),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
-}, (table) => [index("workspaces_owner_user_id_idx").on(table.ownerUserId)]);
+}, (table) => [
+  uniqueIndex("workspaces_owner_name_active_unique").on(table.ownerUserId, table.name).where(sql`${table.archivedAt} is null`),
+  index("workspaces_owner_user_id_idx").on(table.ownerUserId),
+]);
 
 export const workspaceMembers = pgTable("workspace_members", {
   id: id(),

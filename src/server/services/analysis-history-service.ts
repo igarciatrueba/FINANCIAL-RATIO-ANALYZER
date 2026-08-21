@@ -48,6 +48,13 @@ export class AnalysisHistoryService {
     const canonical = parseFinancialAnalysisInput(datasetVersion.version.canonicalInput);
     if (!canonical.success) throw new AppError("VALIDATION_ERROR", "The persisted dataset version no longer passes canonical validation.");
     const run = await this.repository.createAnalysisRun({ workspaceId, companyId, datasetVersionId, requestedBy: actorUserId, engineVersion: ANALYSIS_ENGINE_VERSION, idempotencyKey });
+    if (!run) {
+      const existing = idempotencyKey ? await this.repository.findAnalysisRunByIdempotencyKey(workspaceId, idempotencyKey) : null;
+      if (existing && existing.companyId === companyId && existing.datasetVersionId === datasetVersionId) {
+        throw new AppError("CONFLICT", "This analysis request is already being processed.");
+      }
+      throw new AppError("CONFLICT", "The analysis request could not be created safely. Retry the request.");
+    }
     await this.repository.markAnalysisRunning(run.id);
     await this.repository.recordActivity({ workspaceId, userId: actorUserId, companyId, eventType: "analysis.started", entityType: "analysis_run", entityId: run.id });
 

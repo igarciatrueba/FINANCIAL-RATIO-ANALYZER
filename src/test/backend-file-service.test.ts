@@ -7,6 +7,7 @@ import { applySqlMigrations } from "@/server/db/migrations";
 import * as schema from "@/server/db/schema";
 import { AppError } from "@/server/errors";
 import { BackendRepository } from "@/server/repositories/backend-repository";
+import { ActivityService } from "@/server/services/activity-service";
 import { CompanyService } from "@/server/services/company-service";
 import { FileService } from "@/server/services/file-service";
 import { WorkspaceService } from "@/server/services/workspace-service";
@@ -86,5 +87,25 @@ describe("private file persistence", () => {
       body: new Uint8Array([1]),
     })).rejects.toMatchObject({ code: "VALIDATION_ERROR" } satisfies Partial<AppError>);
     expect(fixture.storage.objects.size).toBe(0);
+  }, 20_000);
+
+  it("soft-deletes metadata, removes private storage and records the deletion", async () => {
+    const fixture = await createFixture();
+    const service = new FileService(fixture.repository, fixture.storage);
+    const activity = new ActivityService(fixture.repository);
+    const file = await service.upload(fixture.owner.id, fixture.workspace.id, {
+      companyId: fixture.company.id,
+      originalFilename: "financial-source.pdf",
+      mimeType: "application/pdf",
+      category: "source_document",
+      body: new Uint8Array([1, 2, 3]),
+    });
+
+    await service.delete(fixture.owner.id, fixture.workspace.id, file.id);
+
+    expect(await fixture.storage.exists(file.storageKey)).toBe(false);
+    await expect(service.getSignedUrl(fixture.owner.id, fixture.workspace.id, file.id)).rejects.toMatchObject({ code: "NOT_FOUND" } satisfies Partial<AppError>);
+    expect((await service.list(fixture.owner.id, fixture.workspace.id, { limit: 10 })).items).toHaveLength(0);
+    expect((await activity.list(fixture.owner.id, fixture.workspace.id, { limit: 10 })).items.map((event) => event.eventType)).toContain("file.deleted");
   }, 20_000);
 });

@@ -73,7 +73,7 @@ npm run build
 
 ## Persistent workspace backend
 
-The backend architecture, ERD, authorization matrix, environment requirements, local setup and external production-provisioning boundaries are documented in [docs/backend/accounts-and-persistence-architecture.md](docs/backend/accounts-and-persistence-architecture.md). To use a locally provisioned PostgreSQL database:
+The backend architecture, ERD, authorization matrix, environment requirements, local setup and external production-provisioning boundaries are documented in [docs/backend/accounts-and-persistence-architecture.md](docs/backend/accounts-and-persistence-architecture.md). The latest [integration readiness review](docs/backend/integration-readiness-review.md) records the real-provider blocker, and the [frontend integration contract](docs/backend/frontend-integration-contract.md) defines the future account-service boundary. To use a locally provisioned PostgreSQL database:
 
 ```bash
 npm run db:migrate

@@ -6,6 +6,18 @@ This backend turns Financial Ratio Analyzer into a tenant-scoped financial works
 
 Financial calculations remain pure in `src/domain`. The persistence layer validates and stores canonical inputs, invokes the existing domain engine, and persists validated analytical snapshots. It does not implement ratios, score thresholds, DuPont, scenario transformations, or insights.
 
+## Integration status
+
+| Area | Implemented | Provisioned | Validated |
+| --- | :---: | :---: | :---: |
+| Drizzle schema, migrations, repositories and services | Yes | N/A | Clean PGlite tests |
+| Supabase Auth server boundary | Yes | No | Configuration/error boundary only |
+| Supabase PostgreSQL | Yes, via `DATABASE_URL` | No | No live provider access in this environment |
+| Supabase private Storage adapter | Yes | No | In-memory storage contract tests |
+| Frontend account API/UI | No, intentionally deferred | No | N/A |
+
+The exact review evidence, local fixes and real-provider blocker are in [integration-readiness-review.md](integration-readiness-review.md). The server-service contract for the future account UI is in [frontend-integration-contract.md](frontend-integration-contract.md).
+
 ## Technology decision
 
 - **PostgreSQL** is the primary relational store: UUID identifiers, `numeric(20,6)` financial values, JSONB snapshots, foreign keys, and durable transaction semantics fit the financial lineage model.
@@ -48,16 +60,16 @@ erDiagram
 | Table | Purpose and important fields |
 | --- | --- |
 | `users` | Internal UUID mapped by unique `(auth_provider, auth_provider_user_id)` and unique email. Profile values are minimal and optional. |
-| `workspaces` | Tenant boundary with `owner_user_id`, timestamps and `archived_at`. Creating a personal workspace creates an owner membership in one transaction. |
+| `workspaces` | Tenant boundary with `owner_user_id`, timestamps and `archived_at`. Creating a personal workspace creates an owner membership in one transaction; active owner/name pairs are unique so retrying bootstrap cannot duplicate the default workspace. |
 | `workspace_members` | Unique `(workspace_id, user_id)` membership and constrained role: owner, admin, member, viewer. |
 | `companies` | Workspace-owned company identity, industry, supported currency, creator lineage and soft archive. |
-| `financial_datasets` | Named company dataset container, soft archivable. |
+| `financial_datasets` | Named company dataset container, soft archivable. Archiving hides it from normal lists but cannot erase referenced immutable versions or analysis lineage. |
 | `financial_dataset_versions` | Immutable numbered canonical-input snapshots. `canonical_input` is runtime-validated before storage and reading. |
 | `financial_statements` / `financial_statement_values` | Four canonical statement groups for each of the three periods; values use PostgreSQL `numeric(20,6)` and canonical metric keys. |
 | `analysis_runs` | Relational execution lineage: workspace, company, dataset version, requester, lifecycle state, engine and input schema versions, timestamps, safe failure code, optional idempotency key. |
 | `analysis_results` | One versioned JSONB `financial_analysis` snapshot per run. Its envelope and key metric structures are runtime-validated before returning a domain result. |
 | `scenarios`, `scenario_assumptions`, `scenario_results` | A scenario is tied to a completed base run and immutable source dataset version. Complete assumptions and result snapshot are versioned JSONB because the scenario controls and output are cohesive nested contracts. |
-| `files` | Private object metadata only: scoped generated storage key, original filename, MIME type, bytes, checksum, category, uploader, and soft deletion. |
+| `files` | Private object metadata only: scoped generated storage key, original filename, MIME type, bytes, checksum, category, uploader, and soft deletion. A deletion makes metadata unreachable before provider object cleanup. |
 | `activity_events` | Minimal product activity metadata. It deliberately excludes credentials, tokens, full financial documents and raw result payloads. |
 
 Important financial entities are archived rather than deleted by normal services. Foreign keys use explicit `RESTRICT`, `CASCADE`, and `SET NULL` rules so a company archive cannot destroy historical analysis. Statement rows cascade only with an unreferenced dataset-version deletion at the database layer; no application service mutates or deletes a dataset version.
@@ -71,9 +83,10 @@ Every protected service follows this sequence: authenticated internal user, work
 | Capability | Owner | Admin | Member | Viewer |
 | --- | :---: | :---: | :---: | :---: |
 | Read workspace data, history and files | Yes | Yes | Yes | Yes |
-| Create/archive companies and datasets | Yes | Yes | Yes | No |
-| Run analysis and create scenarios | Yes | Yes | Yes | No |
-| Upload files | Yes | Yes | Yes | No |
+| Create/update/archive companies | Yes | Yes | Yes | No |
+| Create/version/archive datasets | Yes | Yes | Yes | No |
+| Run analysis and create/update/archive scenarios | Yes | Yes | Yes | No |
+| Upload/delete files | Yes | Yes | Yes | No |
 | Manage workspace members | Yes | Yes | No | No |
 | Archive workspace | Yes | No | No | No |
 
@@ -89,7 +102,7 @@ immutable dataset version
   -> completed analysis run + activity event
 ```
 
-The run is recorded as `pending`, advanced to `running`, then completed atomically with one result. Failures are recorded as `failed` with a safe code and no partial result. History queries are workspace-authorized, ordered by `created_at` and UUID, and use an encoded timestamp-plus-ID cursor.
+The run is recorded as `pending`, advanced to `running`, then completed atomically with one result. Failures are recorded as `failed` with a safe code and no partial result. Workspace, company, dataset, history, scenario, file and activity queries are workspace-authorized, ordered by `created_at` and UUID, and use an encoded timestamp-plus-ID cursor. Dataset versions and analysis results remain immutable; scenario updates can only change their human-facing name or description, never the assumptions or result lineage.
 
 Scenario persistence only accepts a completed base analysis from the requested company and source version. It reuses the existing `applyScenario()` and analytical engine, then retains the assumption contract and output lineage. No scenario becomes canonical financial truth.
 
@@ -97,7 +110,7 @@ Scenario persistence only accepts a completed base analysis from the requested c
 
 `FileService` validates a narrow MIME allow-list (PDF, CSV, XLSX), a 20 MiB limit, and filenames before calling storage. Object keys are generated as `workspaces/{workspaceId}/companies/{companyId}/{uuid}` (or workspace scoped), never from a supplied path. PostgreSQL retains the original filename and SHA-256 checksum. Private signed URLs are created only after workspace authorization. A metadata failure removes the just-uploaded object.
 
-Production storage requires a private Supabase bucket and a server-only `SUPABASE_SERVICE_ROLE_KEY`. Do not expose this key to browser code or commit it.
+Production storage requires a private Supabase bucket and a server-only `SUPABASE_SERVICE_ROLE_KEY`. Do not expose this key to browser code or commit it. The current local test adapter checks upload, signed retrieval, deletion and tenant scoping without provider credentials.
 
 ## Developer setup
 
@@ -111,9 +124,11 @@ Production storage requires a private Supabase bucket and a server-only `SUPABAS
 
 The required environment variable names are listed in `.env.example`; this repository contains no database URL, provider project ID, API key, OAuth secret, or service role credential.
 
-## Production provisioning and operations
+## Supabase provisioning and operations
 
-The repository implements integration boundaries only. Before production use, provision PostgreSQL, a private Supabase Storage bucket, Supabase Auth providers and redirect URLs, environment secrets, backup/PITR, storage durability/lifecycle policies, monitoring, migration deployment ownership, and a rate limiter around future authentication and analysis APIs.
+The repository implements integration boundaries only. Before production use, authenticate against the intended Supabase project, verify its identity, configure untracked environment values, apply `npm run db:migrate` as the only application-schema path, inspect schema drift, create a private storage bucket, configure Auth providers and redirect URLs, and verify health/auth/storage with safe test identities. Do not run the fictional seed automatically in a production-like project.
+
+After a project is available, use `npm run db:check` for a non-destructive database query and verify `/api/health` transitions from `503 {"status":"not-configured"}` to `200 {"status":"ready"}`. That endpoint is database-only; it does not claim Auth or Storage readiness. The separate live validation must cover account bootstrap, two-workspace isolation, dataset version lineage, analysis/scenario persistence, private upload/signed-read/delete, activity events and provider schema drift.
 
 Define account deletion, workspace deletion, GDPR export/deletion, retention, orphaned-file cleanup and recovery procedures before handling non-fictional customer data. Production should use encrypted connections, restricted database roles, tested backups and migration rollback plans. The health endpoint reports only `ready`, `unavailable`, or `not-configured`, never connection details.
 

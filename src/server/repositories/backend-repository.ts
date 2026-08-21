@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, lt, max, or } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, max, or, sql } from "drizzle-orm";
 
 import type { FinancialAnalysisInput, ScenarioAssumptions } from "@/domain";
 import { canonicalInputToStatementRows } from "@/server/datasets/canonical-statement-mapper";
@@ -23,6 +23,7 @@ import {
 } from "@/server/db/schema";
 import type { AnalysisSnapshot } from "@/server/analysis/analysis-snapshot";
 import type { WorkspaceRole } from "@/server/authorization";
+import { AppError } from "@/server/errors";
 
 export type PageRequest = { cursor?: string; limit: number };
 export type PageResult<T> = { items: T[]; nextCursor: string | null };
@@ -45,31 +46,25 @@ export class BackendRepository {
   constructor(private readonly database: AppDatabase) {}
 
   async upsertInternalUser(identity: AuthenticatedIdentity) {
-    const [existing] = await this.database.select().from(users).where(and(
-      eq(users.authProvider, identity.provider),
-      eq(users.authProviderUserId, identity.providerUserId),
-    )).limit(1);
-
-    if (existing) {
-      const [updated] = await this.database.update(users).set({
-        email: identity.email.toLowerCase(),
-        displayName: identity.displayName,
-        avatarUrl: identity.avatarUrl,
-        lastLoginAt: new Date(),
-        updatedAt: new Date(),
-      }).where(eq(users.id, existing.id)).returning();
-      return updated;
-    }
-
-    const [created] = await this.database.insert(users).values({
+    const now = new Date();
+    const [user] = await this.database.insert(users).values({
       authProvider: identity.provider,
       authProviderUserId: identity.providerUserId,
       email: identity.email.toLowerCase(),
       displayName: identity.displayName,
       avatarUrl: identity.avatarUrl,
-      lastLoginAt: new Date(),
+      lastLoginAt: now,
+    }).onConflictDoUpdate({
+      target: [users.authProvider, users.authProviderUserId],
+      set: {
+        email: identity.email.toLowerCase(),
+        displayName: identity.displayName,
+        avatarUrl: identity.avatarUrl,
+        lastLoginAt: now,
+        updatedAt: now,
+      },
     }).returning();
-    return created;
+    return user;
   }
 
   async createWorkspaceWithOwner(input: { name: string; ownerUserId: string }) {
@@ -78,6 +73,20 @@ export class BackendRepository {
       const [workspace] = await scoped.database.insert(workspaces).values({ name: input.name, ownerUserId: input.ownerUserId }).returning();
       await scoped.database.insert(workspaceMembers).values({ workspaceId: workspace.id, userId: input.ownerUserId, role: "owner" });
       return workspace;
+    });
+  }
+
+  async ensureWorkspaceWithOwner(input: { name: string; ownerUserId: string }) {
+    return this.database.transaction(async (transaction) => {
+      const scoped = new BackendRepository(transaction as unknown as AppDatabase);
+      const [created] = await scoped.database.insert(workspaces).values(input).onConflictDoNothing().returning();
+      if (!created) {
+        const existing = await scoped.findWorkspaceOwnedBy(input.ownerUserId, input.name);
+        if (!existing) throw new AppError("CONFLICT", "The personal workspace could not be provisioned safely.");
+        return { workspace: existing, created: false };
+      }
+      await scoped.database.insert(workspaceMembers).values({ workspaceId: created.id, userId: input.ownerUserId, role: "owner" });
+      return { workspace: created, created: true };
     });
   }
 
@@ -90,12 +99,43 @@ export class BackendRepository {
     return workspace ?? null;
   }
 
+  async archiveWorkspace(workspaceId: string) {
+    const [workspace] = await this.database.update(workspaces).set({ archivedAt: new Date(), updatedAt: new Date() }).where(and(
+      eq(workspaces.id, workspaceId),
+      isNull(workspaces.archivedAt),
+    )).returning();
+    return workspace ?? null;
+  }
+
   async findMembership(userId: string, workspaceId: string) {
-    const [membership] = await this.database.select().from(workspaceMembers).where(and(
+    const [row] = await this.database.select({ membership: workspaceMembers }).from(workspaceMembers)
+      .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
+      .where(and(
       eq(workspaceMembers.userId, userId),
       eq(workspaceMembers.workspaceId, workspaceId),
+      isNull(workspaces.archivedAt),
     )).limit(1);
-    return membership ?? null;
+    return row?.membership ?? null;
+  }
+
+  async listWorkspacesForUser(userId: string, request: PageRequest) {
+    const where = [eq(workspaceMembers.userId, userId), isNull(workspaces.archivedAt)];
+    if (request.cursor) {
+      const cursor = decodeAnalysisCursor(request.cursor);
+      if (!cursor) return { items: [], nextCursor: null };
+      const cursorConstraint = or(
+        lt(workspaces.createdAt, cursor.createdAt),
+        and(eq(workspaces.createdAt, cursor.createdAt), lt(workspaces.id, cursor.id)),
+      );
+      if (cursorConstraint) where.push(cursorConstraint);
+    }
+    const items = await this.database.select({ workspace: workspaces, membership: workspaceMembers }).from(workspaceMembers)
+      .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
+      .where(and(...where))
+      .orderBy(desc(workspaces.createdAt), desc(workspaces.id))
+      .limit(request.limit + 1);
+    const next = items.length > request.limit ? items.pop() : undefined;
+    return { items, nextCursor: next ? `${next.workspace.createdAt.toISOString()}|${next.workspace.id}` : null };
   }
 
   async addWorkspaceMember(input: { workspaceId: string; userId: string; role: WorkspaceRole }) {
@@ -117,11 +157,20 @@ export class BackendRepository {
     return company ?? null;
   }
 
-  async listCompaniesForWorkspace(workspaceId: string) {
-    return this.database.select().from(companies).where(and(
-      eq(companies.workspaceId, workspaceId),
-      isNull(companies.archivedAt),
-    )).orderBy(companies.name);
+  async listCompaniesForWorkspace(workspaceId: string, request: PageRequest) {
+    const where = [eq(companies.workspaceId, workspaceId), isNull(companies.archivedAt)];
+    if (request.cursor) {
+      const cursor = decodeAnalysisCursor(request.cursor);
+      if (!cursor) return { items: [], nextCursor: null };
+      const cursorConstraint = or(
+        lt(companies.createdAt, cursor.createdAt),
+        and(eq(companies.createdAt, cursor.createdAt), lt(companies.id, cursor.id)),
+      );
+      if (cursorConstraint) where.push(cursorConstraint);
+    }
+    const items = await this.database.select().from(companies).where(and(...where)).orderBy(desc(companies.createdAt), desc(companies.id)).limit(request.limit + 1);
+    const next = items.length > request.limit ? items.pop() : undefined;
+    return { items, nextCursor: next ? `${next.createdAt.toISOString()}|${next.id}` : null };
   }
 
   async findCompanyByNameForWorkspace(workspaceId: string, name: string) {
@@ -135,6 +184,15 @@ export class BackendRepository {
 
   async archiveCompany(workspaceId: string, companyId: string) {
     const [company] = await this.database.update(companies).set({ archivedAt: new Date(), updatedAt: new Date() }).where(and(
+      eq(companies.id, companyId),
+      eq(companies.workspaceId, workspaceId),
+      isNull(companies.archivedAt),
+    )).returning();
+    return company ?? null;
+  }
+
+  async updateCompany(workspaceId: string, companyId: string, values: { name?: string; industry?: string; currency?: "EUR" | "USD" | "GBP" }) {
+    const [company] = await this.database.update(companies).set({ ...values, updatedAt: new Date() }).where(and(
       eq(companies.id, companyId),
       eq(companies.workspaceId, workspaceId),
       isNull(companies.archivedAt),
@@ -196,7 +254,12 @@ export class BackendRepository {
       sourceType: input.sourceType,
       canonicalInput: input.canonicalInput,
       createdBy: input.createdBy,
+    }).onConflictDoNothing({
+      target: [financialDatasetVersions.financialDatasetId, financialDatasetVersions.versionNumber],
     }).returning();
+    if (!version) {
+      throw new AppError("CONFLICT", "A dataset version was created concurrently. Reload the dataset and retry the edit.");
+    }
     const statementRows = canonicalInputToStatementRows(input.canonicalInput, version.id, input.sourceType);
     for (const statement of statementRows) {
       const [createdStatement] = await this.database.insert(financialStatements).values({
@@ -224,24 +287,51 @@ export class BackendRepository {
         eq(financialDatasets.companyId, companyId),
         eq(companies.workspaceId, workspaceId),
         isNull(companies.archivedAt),
+        isNull(financialDatasets.archivedAt),
       )).limit(1);
     return row ?? null;
   }
 
-  async listDatasetsForCompany(workspaceId: string, companyId: string) {
-    return this.database.select({ dataset: financialDatasets }).from(financialDatasets)
+  async listDatasetsForCompany(workspaceId: string, companyId: string, request: PageRequest) {
+    const where = [
+      eq(financialDatasets.companyId, companyId),
+      eq(companies.workspaceId, workspaceId),
+      isNull(financialDatasets.archivedAt),
+      isNull(companies.archivedAt),
+    ];
+    if (request.cursor) {
+      const cursor = decodeAnalysisCursor(request.cursor);
+      if (!cursor) return { items: [], nextCursor: null };
+      const cursorConstraint = or(
+        lt(financialDatasets.createdAt, cursor.createdAt),
+        and(eq(financialDatasets.createdAt, cursor.createdAt), lt(financialDatasets.id, cursor.id)),
+      );
+      if (cursorConstraint) where.push(cursorConstraint);
+    }
+    const items = await this.database.select({ dataset: financialDatasets }).from(financialDatasets)
       .innerJoin(companies, eq(financialDatasets.companyId, companies.id))
-      .where(and(
-        eq(financialDatasets.companyId, companyId),
-        eq(companies.workspaceId, workspaceId),
-        isNull(financialDatasets.archivedAt),
-      ))
-      .orderBy(financialDatasets.createdAt);
+      .where(and(...where))
+      .orderBy(desc(financialDatasets.createdAt), desc(financialDatasets.id))
+      .limit(request.limit + 1);
+    const next = items.length > request.limit ? items.pop() : undefined;
+    return { items, nextCursor: next ? `${next.dataset.createdAt.toISOString()}|${next.dataset.id}` : null };
+  }
+
+  async archiveDataset(workspaceId: string, companyId: string, datasetId: string) {
+    const [dataset] = await this.database.update(financialDatasets).set({ archivedAt: new Date(), updatedAt: new Date() }).where(and(
+      eq(financialDatasets.id, datasetId),
+      eq(financialDatasets.companyId, companyId),
+      isNull(financialDatasets.archivedAt),
+      sql`exists (select 1 from ${companies} where ${companies.id} = ${financialDatasets.companyId} and ${companies.workspaceId} = ${workspaceId})`,
+    )).returning();
+    return dataset ?? null;
   }
 
   async createAnalysisRun(input: { workspaceId: string; companyId: string; datasetVersionId: string; requestedBy: string; engineVersion: string; idempotencyKey?: string }) {
-    const [run] = await this.database.insert(analysisRuns).values({ ...input, status: "pending" }).returning();
-    return run;
+    const [run] = await this.database.insert(analysisRuns).values({ ...input, status: "pending" }).onConflictDoNothing({
+      target: [analysisRuns.workspaceId, analysisRuns.idempotencyKey],
+    }).returning();
+    return run ?? null;
   }
 
   async findAnalysisRunByIdempotencyKey(workspaceId: string, idempotencyKey: string) {
@@ -324,6 +414,51 @@ export class BackendRepository {
     return result;
   }
 
+  async getScenarioForWorkspace(workspaceId: string, scenarioId: string) {
+    const [row] = await this.database.select({ scenario: scenarios, assumptions: scenarioAssumptions, result: scenarioResults }).from(scenarios)
+      .leftJoin(scenarioAssumptions, eq(scenarioAssumptions.scenarioId, scenarios.id))
+      .leftJoin(scenarioResults, eq(scenarioResults.scenarioId, scenarios.id))
+      .where(and(eq(scenarios.id, scenarioId), eq(scenarios.workspaceId, workspaceId), isNull(scenarios.archivedAt)))
+      .orderBy(desc(scenarioResults.createdAt))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async listScenariosForWorkspace(workspaceId: string, request: PageRequest, companyId?: string): Promise<PageResult<typeof scenarios.$inferSelect>> {
+    const where = [eq(scenarios.workspaceId, workspaceId), isNull(scenarios.archivedAt)];
+    if (companyId) where.push(eq(scenarios.companyId, companyId));
+    if (request.cursor) {
+      const cursor = decodeAnalysisCursor(request.cursor);
+      if (!cursor) return { items: [], nextCursor: null };
+      const cursorConstraint = or(
+        lt(scenarios.createdAt, cursor.createdAt),
+        and(eq(scenarios.createdAt, cursor.createdAt), lt(scenarios.id, cursor.id)),
+      );
+      if (cursorConstraint) where.push(cursorConstraint);
+    }
+    const items = await this.database.select().from(scenarios).where(and(...where)).orderBy(desc(scenarios.createdAt), desc(scenarios.id)).limit(request.limit + 1);
+    const next = items.length > request.limit ? items.pop() : undefined;
+    return { items, nextCursor: next ? `${next.createdAt.toISOString()}|${next.id}` : null };
+  }
+
+  async archiveScenario(workspaceId: string, scenarioId: string) {
+    const [scenario] = await this.database.update(scenarios).set({ archivedAt: new Date(), updatedAt: new Date() }).where(and(
+      eq(scenarios.id, scenarioId),
+      eq(scenarios.workspaceId, workspaceId),
+      isNull(scenarios.archivedAt),
+    )).returning();
+    return scenario ?? null;
+  }
+
+  async updateScenario(workspaceId: string, scenarioId: string, values: { name?: string; description?: string | null }) {
+    const [scenario] = await this.database.update(scenarios).set({ ...values, updatedAt: new Date() }).where(and(
+      eq(scenarios.id, scenarioId),
+      eq(scenarios.workspaceId, workspaceId),
+      isNull(scenarios.archivedAt),
+    )).returning();
+    return scenario ?? null;
+  }
+
   async createFileMetadata(input: { workspaceId: string; companyId?: string; uploadedBy: string; originalFilename: string; storageKey: string; mimeType: string; sizeBytes: number; category: "financial_input" | "source_document" | "import" | "report"; checksum: string }) {
     const [file] = await this.database.insert(files).values(input).returning();
     return file;
@@ -331,6 +466,32 @@ export class BackendRepository {
 
   async findFileForWorkspace(workspaceId: string, fileId: string) {
     const [file] = await this.database.select().from(files).where(and(eq(files.id, fileId), eq(files.workspaceId, workspaceId), isNull(files.deletedAt))).limit(1);
+    return file ?? null;
+  }
+
+  async listFilesForWorkspace(workspaceId: string, request: PageRequest, companyId?: string) {
+    const where = [eq(files.workspaceId, workspaceId), isNull(files.deletedAt)];
+    if (companyId) where.push(eq(files.companyId, companyId));
+    if (request.cursor) {
+      const cursor = decodeAnalysisCursor(request.cursor);
+      if (!cursor) return { items: [], nextCursor: null };
+      const cursorConstraint = or(
+        lt(files.createdAt, cursor.createdAt),
+        and(eq(files.createdAt, cursor.createdAt), lt(files.id, cursor.id)),
+      );
+      if (cursorConstraint) where.push(cursorConstraint);
+    }
+    const items = await this.database.select().from(files).where(and(...where)).orderBy(desc(files.createdAt), desc(files.id)).limit(request.limit + 1);
+    const next = items.length > request.limit ? items.pop() : undefined;
+    return { items, nextCursor: next ? `${next.createdAt.toISOString()}|${next.id}` : null };
+  }
+
+  async markFileDeleted(workspaceId: string, fileId: string) {
+    const [file] = await this.database.update(files).set({ deletedAt: new Date() }).where(and(
+      eq(files.id, fileId),
+      eq(files.workspaceId, workspaceId),
+      isNull(files.deletedAt),
+    )).returning();
     return file ?? null;
   }
 
@@ -342,7 +503,17 @@ export class BackendRepository {
   async listActivityForWorkspace(workspaceId: string, request: PageRequest, companyId?: string) {
     const where = [eq(activityEvents.workspaceId, workspaceId)];
     if (companyId) where.push(eq(activityEvents.companyId, companyId));
-    const items = await this.database.select().from(activityEvents).where(and(...where)).orderBy(desc(activityEvents.createdAt), desc(activityEvents.id)).limit(request.limit);
-    return items;
+    if (request.cursor) {
+      const cursor = decodeAnalysisCursor(request.cursor);
+      if (!cursor) return { items: [], nextCursor: null };
+      const cursorConstraint = or(
+        lt(activityEvents.createdAt, cursor.createdAt),
+        and(eq(activityEvents.createdAt, cursor.createdAt), lt(activityEvents.id, cursor.id)),
+      );
+      if (cursorConstraint) where.push(cursorConstraint);
+    }
+    const items = await this.database.select().from(activityEvents).where(and(...where)).orderBy(desc(activityEvents.createdAt), desc(activityEvents.id)).limit(request.limit + 1);
+    const next = items.length > request.limit ? items.pop() : undefined;
+    return { items, nextCursor: next ? `${next.createdAt.toISOString()}|${next.id}` : null };
   }
 }

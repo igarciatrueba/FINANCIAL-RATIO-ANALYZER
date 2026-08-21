@@ -3,7 +3,7 @@ import { extname } from "node:path";
 import { z } from "zod";
 
 import { AppError } from "@/server/errors";
-import { BackendRepository } from "@/server/repositories/backend-repository";
+import { BackendRepository, type PageRequest } from "@/server/repositories/backend-repository";
 import { AuthorizationService } from "@/server/services/authorization-service";
 import type { StorageService } from "@/server/storage/types";
 
@@ -63,4 +63,29 @@ export class FileService {
     if (!file) throw new AppError("NOT_FOUND", "The requested file is not available in this workspace.");
     return this.storage.getSignedUrl(file.storageKey, 60 * 5);
   }
+
+  async list(actorUserId: string, workspaceId: string, request: unknown, companyId?: string) {
+    await this.authorization.requireWorkspaceAction(actorUserId, workspaceId, "read");
+    if (companyId) await this.authorization.requireCompanyAccess(actorUserId, workspaceId, companyId, "read");
+    const parsed = pageRequestSchema.safeParse(request);
+    if (!parsed.success) throw new AppError("VALIDATION_ERROR", "A pagination request must use a limit from 1 to 100.");
+    return this.repository.listFilesForWorkspace(workspaceId, parsed.data satisfies PageRequest, companyId);
+  }
+
+  async delete(actorUserId: string, workspaceId: string, fileId: string) {
+    await this.authorization.requireWorkspaceAction(actorUserId, workspaceId, "manage-files");
+    if (!z.string().uuid().safeParse(fileId).success) throw new AppError("VALIDATION_ERROR", "A valid file identifier is required.");
+    const file = await this.repository.findFileForWorkspace(workspaceId, fileId);
+    if (!file) throw new AppError("NOT_FOUND", "The requested file is not available in this workspace.");
+    const deleted = await this.repository.markFileDeleted(workspaceId, fileId);
+    if (!deleted) throw new AppError("NOT_FOUND", "The requested file is not available in this workspace.");
+    await this.storage.delete(file.storageKey);
+    await this.repository.recordActivity({ workspaceId, userId: actorUserId, companyId: file.companyId ?? undefined, eventType: "file.deleted", entityType: "file", entityId: file.id });
+    return deleted;
+  }
 }
+
+const pageRequestSchema = z.object({
+  cursor: z.string().min(1).optional(),
+  limit: z.number().int().min(1).max(100),
+}).strict();

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import type { WorkspaceAction } from "@/server/authorization";
 import { requireWorkspaceAction } from "@/server/authorization";
 import { AppError } from "@/server/errors";
@@ -27,4 +29,3 @@ export class AuthorizationService {
     return company;
   }
 }
-import { z } from "zod";

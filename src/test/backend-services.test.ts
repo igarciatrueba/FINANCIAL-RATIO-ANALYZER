@@ -133,6 +133,19 @@ describe("persistent workspace services", () => {
     expect(second.id).toBe(first.id);
   }, 20_000);
 
+  it("provisions one active personal workspace and owner membership across concurrent retries", async () => {
+    const services = await createServices();
+    const user = await services.repository.upsertInternalUser({ provider: "test", providerUserId: "concurrent-owner", email: "concurrent-owner@example.test" });
+
+    const provisioned = await Promise.all(Array.from({ length: 4 }, () => services.workspaces.ensurePersonalWorkspace(user.id, "Personal workspace")));
+    const workspaceIds = new Set(provisioned.map((workspace) => workspace.id));
+    const memberships = await services.workspaces.listForUser(user.id, { limit: 10 });
+
+    expect(workspaceIds.size).toBe(1);
+    expect(memberships.items).toHaveLength(1);
+    expect(memberships.items[0]?.membership.role).toBe("owner");
+  }, 20_000);
+
   it("prevents an administrator from granting workspace ownership", async () => {
     const services = await createServices();
     const owner = await services.repository.upsertInternalUser({ provider: "test", providerUserId: "owner", email: "owner@example.test" });
@@ -142,5 +155,16 @@ describe("persistent workspace services", () => {
     await services.workspaces.addMember(owner.id, workspace.id, administrator.id, "admin");
 
     await expect(services.workspaces.addMember(administrator.id, workspace.id, candidate.id, "owner")).rejects.toMatchObject({ code: "FORBIDDEN" });
+  }, 20_000);
+
+  it("makes an archived workspace unavailable to subsequent member operations", async () => {
+    const services = await createServices();
+    const owner = await services.repository.upsertInternalUser({ provider: "test", providerUserId: "archiving-owner", email: "archiving-owner@example.test" });
+    const workspace = await services.workspaces.createPersonalWorkspace(owner.id, "Archivable workspace");
+
+    await services.workspaces.archive(owner.id, workspace.id);
+
+    await expect(services.companies.list(owner.id, workspace.id, { limit: 10 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect((await services.workspaces.listForUser(owner.id, { limit: 10 })).items).toHaveLength(0);
   }, 20_000);
 });

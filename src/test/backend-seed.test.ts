@@ -23,11 +23,11 @@ describe("development database seed", () => {
 
     const first = await seedDevelopmentWorkspace(repository);
     const second = await seedDevelopmentWorkspace(repository);
-    const persistedCompanies = await repository.listCompaniesForWorkspace(first.workspace.id);
-    const persistedDatasets = await Promise.all(persistedCompanies.map((company) => repository.listDatasetsForCompany(first.workspace.id, company.id)));
+    const persistedCompanies = await repository.listCompaniesForWorkspace(first.workspace.id, { limit: 10 });
+    const persistedDatasets = await Promise.all(persistedCompanies.items.map((company) => repository.listDatasetsForCompany(first.workspace.id, company.id, { limit: 10 })));
 
     expect(second.workspace.id).toBe(first.workspace.id);
-    expect(persistedCompanies.map((company) => company.name).sort()).toEqual(["Atlas Manufacturing Group", "NovaTech Solutions"]);
-    expect(persistedDatasets.flat()).toHaveLength(2);
+    expect(persistedCompanies.items.map((company) => company.name).sort()).toEqual(["Atlas Manufacturing Group", "NovaTech Solutions"]);
+    expect(persistedDatasets.flatMap((result) => result.items)).toHaveLength(2);
   }, 20_000);
 });

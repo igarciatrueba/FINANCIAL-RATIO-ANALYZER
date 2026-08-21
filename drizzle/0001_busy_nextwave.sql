@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "workspaces_owner_name_active_unique" ON "workspaces" USING btree ("owner_user_id","name") WHERE "workspaces"."archived_at" is null;

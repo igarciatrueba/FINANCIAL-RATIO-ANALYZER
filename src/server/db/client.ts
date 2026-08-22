@@ -23,6 +23,8 @@ export function getDatabase(): AppDatabase {
   }
 
   pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  // A managed pooler can reset an idle client; pg removes it after this event.
+  pool.on("error", () => undefined);
   database = drizzle({ client: pool, schema });
   return database;
 }

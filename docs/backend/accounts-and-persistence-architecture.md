@@ -10,10 +10,10 @@ Financial calculations remain pure in `src/domain`. The persistence layer valida
 
 | Area | Implemented | Provisioned | Validated |
 | --- | :---: | :---: | :---: |
-| Drizzle schema, migrations, repositories and services | Yes | N/A | Clean PGlite tests |
-| Supabase Auth server boundary | Yes | No | Configuration/error boundary only |
-| Supabase PostgreSQL | Yes, via `DATABASE_URL` | No | No live provider access in this environment |
-| Supabase private Storage adapter | Yes | No | In-memory storage contract tests |
+| Drizzle schema, migrations, repositories and services | Yes | Yes | Clean PGlite and live Supabase checks |
+| Supabase Auth server boundary | Yes | Yes | Synthetic email/password claims and account mapping |
+| Supabase PostgreSQL | Yes, via Session Pooler `DATABASE_URL` | Yes | Migrations, schema, lineage and tenant validation |
+| Supabase private Storage adapter | Yes | Yes | Private bucket, signed access and metadata linkage |
 | Frontend account API/UI | No, intentionally deferred | No | N/A |
 
 The exact review evidence, local fixes and real-provider blocker are in [integration-readiness-review.md](integration-readiness-review.md). The server-service contract for the future account UI is in [frontend-integration-contract.md](frontend-integration-contract.md).
@@ -90,7 +90,7 @@ Every protected service follows this sequence: authenticated internal user, work
 | Manage workspace members | Yes | Yes | No | No |
 | Archive workspace | Yes | No | No | No |
 
-`docs/backend/supabase-rls-policies.sql` prepares optional Supabase Row Level Security as defense in depth. It is intentionally not part of the application migration chain: it references Supabase `auth.uid()` and must be applied only to a provisioned Supabase project after verifying the production connection role and migration ownership. Server-side authorization remains mandatory regardless of RLS.
+`docs/backend/supabase-rls-policies.sql` prepares optional Supabase Row Level Security as defense in depth. It is intentionally not part of the application migration chain: it references Supabase `auth.uid()` and must be applied only after a deliberate client-context database design. The validated current deployment has no RLS enabled on application tables and uses a trusted server-only Session Pooler connection, so server-side authorization remains mandatory.
 
 ## Analysis, scenario and activity flow
 
@@ -119,14 +119,14 @@ Production storage requires a private Supabase bucket and a server-only `SUPABAS
 3. Run `npm run db:migrate`.
 4. Run `npm run db:seed` to create a synthetic development identity, personal workspace, NovaTech Solutions and Atlas Manufacturing Group datasets. The seed is idempotent and never runs automatically.
 5. Run `npm run db:check` to make a safe `SELECT 1` connection check.
-6. Run `npm run db:test` for clean PGlite migrations and backend-focused tests; then use `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`.
+6. Run `npm run db:test` for clean PGlite migrations and backend-focused tests. For an intentionally configured non-production Supabase environment, run `npm run db:live:check`; it creates and cleans up synthetic validation data. Then use `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`.
 7. Start the existing application with `npm run dev`. It remains usable without login until a separate frontend account phase is approved.
 
 The required environment variable names are listed in `.env.example`; this repository contains no database URL, provider project ID, API key, OAuth secret, or service role credential.
 
 ## Supabase provisioning and operations
 
-The repository implements integration boundaries only. Before production use, authenticate against the intended Supabase project, verify its identity, configure untracked environment values, apply `npm run db:migrate` as the only application-schema path, inspect schema drift, create a private storage bucket, configure Auth providers and redirect URLs, and verify health/auth/storage with safe test identities. Do not run the fictional seed automatically in a production-like project.
+The current Supabase integration was validated through a Session Pooler connection using `npm run db:migrate`, `npm run db:check` and `npm run db:live:check`. Drizzle remains the only application-schema path. Future environments must still verify project identity, configure untracked environment values, create a private bucket, configure Auth redirect URLs and run the same synthetic validation before use. Do not run the fictional seed automatically in a production-like project.
 
 After a project is available, use `npm run db:check` for a non-destructive database query and verify `/api/health` transitions from `503 {"status":"not-configured"}` to `200 {"status":"ready"}`. That endpoint is database-only; it does not claim Auth or Storage readiness. The separate live validation must cover account bootstrap, two-workspace isolation, dataset version lineage, analysis/scenario persistence, private upload/signed-read/delete, activity events and provider schema drift.
 

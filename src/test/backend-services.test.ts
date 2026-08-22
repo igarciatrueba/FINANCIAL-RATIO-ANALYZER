@@ -8,6 +8,7 @@ import { applySqlMigrations } from "@/server/db/migrations";
 import * as schema from "@/server/db/schema";
 import { BackendRepository } from "@/server/repositories/backend-repository";
 import { AnalysisHistoryService } from "@/server/services/analysis-history-service";
+import { AccountService } from "@/server/services/account-service";
 import { CompanyService } from "@/server/services/company-service";
 import { FinancialDatasetService } from "@/server/services/financial-dataset-service";
 import { WorkspaceService } from "@/server/services/workspace-service";
@@ -123,6 +124,22 @@ describe("persistent workspace services", () => {
     expect((await services.analyses.list(owner.id, workspace.id, { limit: 10 }, company.id)).items).toHaveLength(1);
   }, 20_000);
 
+  it("uses the last returned item as the cursor without skipping analysis history", async () => {
+    const services = await createServices();
+    const owner = await services.repository.upsertInternalUser({ provider: "test", providerUserId: "pagination-owner", email: "pagination-owner@example.test" });
+    const workspace = await services.workspaces.createPersonalWorkspace(owner.id, "Pagination workspace");
+    const company = await services.companies.create(owner.id, workspace.id, { name: "NovaTech Solutions", industry: "Enterprise Software", currency: "EUR" });
+    const dataset = await services.datasets.createDataset(owner.id, workspace.id, company.id, "FY 2022-2024", cloneDemoCompany("novatech-solutions"), "demo");
+    const first = await services.analyses.execute(owner.id, workspace.id, company.id, dataset.version.id, "pagination-first");
+    const second = await services.analyses.execute(owner.id, workspace.id, company.id, dataset.version.id, "pagination-second");
+
+    const firstPage = await services.analyses.list(owner.id, workspace.id, { limit: 1 }, company.id);
+    const secondPage = await services.analyses.list(owner.id, workspace.id, { limit: 1, cursor: firstPage.nextCursor! }, company.id);
+
+    expect(firstPage.nextCursor).not.toBeNull();
+    expect(new Set([firstPage.items[0]?.id, secondPage.items[0]?.id])).toEqual(new Set([first.runId, second.runId]));
+  }, 20_000);
+
   it("creates a personal workspace once for a returning internal user", async () => {
     const services = await createServices();
     const user = await services.repository.upsertInternalUser({ provider: "test", providerUserId: "owner", email: "owner@example.test" });
@@ -144,6 +161,26 @@ describe("persistent workspace services", () => {
     expect(workspaceIds.size).toBe(1);
     expect(memberships.items).toHaveLength(1);
     expect(memberships.items[0]?.membership.role).toBe("owner");
+  }, 20_000);
+
+  it("upserts one internal user across concurrent authenticated identity retries", async () => {
+    const services = await createServices();
+    const identity = { provider: "test", providerUserId: "concurrent-identity", email: "concurrent-identity@example.test" };
+
+    const users = await Promise.all(Array.from({ length: 4 }, () => services.repository.upsertInternalUser(identity)));
+
+    expect(new Set(users.map((user) => user.id)).size).toBe(1);
+  }, 20_000);
+
+  it("maps one authenticated identity to one internal user and personal workspace", async () => {
+    const services = await createServices();
+    const accounts = new AccountService(services.repository);
+    const identity = { provider: "test", providerUserId: "account-owner", email: "account-owner@example.test" };
+
+    const accountsForIdentity = await Promise.all(Array.from({ length: 3 }, () => accounts.resolveAccountForIdentity(identity)));
+
+    expect(new Set(accountsForIdentity.map((account) => account.user.id)).size).toBe(1);
+    expect(new Set(accountsForIdentity.map((account) => account.workspace.id)).size).toBe(1);
   }, 20_000);
 
   it("prevents an administrator from granting workspace ownership", async () => {

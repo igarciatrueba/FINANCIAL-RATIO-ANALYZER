@@ -1,14 +1,14 @@
 # Backend Integration Readiness Review
 
-**Review date:** 2026-08-21
+**Review date:** 2026-08-22
 **Branch reviewed:** `codex/accounts-persistence-backend`
 **Scope:** account/workspace persistence backend only. The anonymous product and financial methodology are unchanged.
 
 ## Verdict
 
-The repository is **code-ready for a real Supabase integration and for the future account frontend boundary**. Its application schema is migration-backed, services are tenant-scoped, and the local clean-database suite validates the persistence workflows.
+The backend is **validated against the configured real Supabase environment and ready for the future account frontend boundary**. Drizzle migrations were applied through the configured Session Pooler; the application schema was inspected; and isolated synthetic Auth, database and Storage workflows passed and were cleaned up.
 
-Real provider integration is **blocked**, not incomplete in disguise: this environment has no authenticated Supabase CLI/API session, no Supabase project credentials, no `DATABASE_URL`, and no PostgreSQL client connection string. No real project, database, bucket, Auth configuration, migration application, provider schema inspection, or live tenant-isolation test was attempted or claimed.
+No provider credential, project identifier, connection string, synthetic password or test fixture was written to the repository or retained after validation.
 
 ## Implementation inventory
 
@@ -23,6 +23,7 @@ Real provider integration is **blocked**, not incomplete in disguise: this envir
 | Authorization | `src/server/authorization.ts`, `src/server/services/authorization-service.ts` |
 | Storage interface and provider adapter | `src/server/storage/types.ts`, `src/server/storage/supabase-storage-service.ts` |
 | Account, workspace, company, dataset, analysis, scenario, file and activity services | `src/server/services/` |
+| Live integration command | `src/server/db/live-integration-check.ts`, run by `npm run db:live:check` |
 | Current HTTP endpoint | `src/app/api/health/route.ts` only |
 | Backend tests | `src/test/backend-*.test.ts` |
 | Architecture / decision records | this document, `accounts-and-persistence-architecture.md`, `frontend-integration-contract.md`, `docs/decisions/ADR-003-accounts-and-persistence-architecture.md` |
@@ -49,11 +50,12 @@ The complete ERD and table-by-table data dictionary remain in [accounts-and-pers
 
 | Finding | Risk | Resolution |
 | --- | --- | --- |
-| Internal-user provisioning used a read-then-write path. | A first-login retry could race. | User mapping now uses `INSERT … ON CONFLICT DO UPDATE` on the provider identity. |
+| Internal-user provisioning used a read-then-write path. | A first-login retry could race. | User mapping uses conflict-tolerant insertion, then retrieves by provider identity; a same-email/different-identity collision returns typed `CONFLICT`. Live concurrent bootstrap now creates one user and one personal workspace. |
 | Personal workspace bootstrap used a read-then-create path. | Duplicate active personal workspaces or raw uniqueness failures. | Added the active-owner/name unique index and transactional insert-or-read bootstrap. Concurrent retries return one workspace and one owner membership. |
 | Dataset-version and analysis-idempotency uniqueness could surface raw database conflicts. | A retry could expose an implementation detail or create partial work. | Conflict-safe inserts return typed `CONFLICT` errors; dataset statements are inside the surrounding transaction. |
 | Future account frontend lacked several tenant-scoped read/archive/update service boundaries. | UI would need repository access or invent unsafe paths. | Added workspace list/archive; company list/get/update; dataset list/get-version/archive; scenario get/list/update/archive; file list/delete; cursor pagination for scenarios, files and activity. |
 | Scenario recovery did not revalidate persisted assumption JSONB at the read boundary. | A malformed stored payload could be trusted. | Scenario reads now parse the complete assumption contract and result snapshot, returning a safe validation error on malformed persisted data. |
+| Cursor pagination used the item beyond the current page as its cursor. | The first record of the next page could be skipped. | All paginated repository lists now use the last returned item as the cursor; PGlite and live checks cover page continuation. |
 
 ## Authorization and IDOR review
 
@@ -80,7 +82,7 @@ authenticated provider identity
 | Manage members | Yes | Yes | No | No |
 | Archive workspace | Yes | No | No | No |
 
-Supabase RLS is not yet applied because there is no provisioned Supabase project. The application uses server-side authorization as its mandatory control. The optional defense-in-depth policy draft is [supabase-rls-policies.sql](supabase-rls-policies.sql); it must be reviewed against the actual connection role before use. A privileged server database connection must never be paired with missing service authorization.
+The validated deployment model is server-mediated: application tables have no active RLS policies, and the Session Pooler database connection is used only by trusted server code. Server-side workspace authorization is therefore mandatory and was validated against real User A/User B access plus owner/admin/member/viewer roles. Browser code has no direct database client. The optional defense-in-depth policy draft is [supabase-rls-policies.sql](supabase-rls-policies.sql); it must be reviewed and applied deliberately before any future authenticated client-context database access.
 
 ## JSONB, lineage and precision review
 
@@ -92,7 +94,7 @@ No financial formula, score, DuPont calculation or insight is persisted as a rep
 
 `StorageService` supports upload, private signed retrieval, deletion and existence checks. `FileService` accepts only PDF, CSV and XLSX up to 20 MiB, rejects path separators, uses generated workspace/company-scoped keys, treats the original filename as metadata, checks workspace access before signed URLs, and compensates an upload when metadata persistence fails. File deletion soft-deletes metadata before removing the private object, so a storage-deletion failure cannot leave a downloadable metadata record; production operations should monitor and clean any unreachable orphan object.
 
-No provider bucket exists in this environment. The required future bucket is private and must be accessed through the server-only service role adapter, never a public object URL.
+The configured private Supabase bucket was validated with generated tenant-scoped object keys, upload, signed retrieval, public-read denial, deletion and database metadata linkage. Foreign-workspace access was denied by the server service. The service role remains server-only.
 
 ## Health and environment review
 
@@ -100,29 +102,26 @@ No provider bucket exists in this environment. The required future bucket is pri
 
 Required variable names are `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`, and optional `ANALYSIS_ENGINE_VERSION`. They are documented without values in `.env.example`. `SUPABASE_SERVICE_ROLE_KEY` is read solely by the server storage adapter; public variables contain only the Supabase URL and publishable key.
 
-## Provider provisioning status and required human action
+## Live integration evidence
 
-The local environment has Docker but no Supabase CLI, no `psql`, no authenticated Supabase configuration, and no provider/database environment variables. Therefore the following required action is blocked pending authorized access:
+- `npm run db:check` completed a real `SELECT 1` through the Supabase Session Pooler.
+- `npm run db:migrate` applied the repository Drizzle migrations; real-schema inspection confirmed all 15 application tables, required enums, primary/foreign-key coverage, uniqueness indexes, archive fields, `numeric(20,6)` financial precision and applied migration records. No application-schema drift was found.
+- `GET /api/health` was invoked through its route handler with the configured database and returned `200` / `ready`.
+- Synthetic Supabase email/password users produced real claims. Concurrent mapping created one internal user, one personal workspace and one owner membership; User A/User B cross-workspace access was denied.
+- Company CRUD/archive, role permissions, workspace/archive behavior, immutable dataset v1-to-v2 lineage, completed and failed analyses, history pagination, scenarios, JSONB recovery, files and activity events all passed against PostgreSQL.
+- Private Storage upload, signed retrieval, raw public-read denial, cross-workspace denial, metadata persistence and cleanup passed. Synthetic Auth users, objects and application rows were removed after the check.
 
-1. Authenticate the Supabase CLI/API under the intended Financial Ratio Analyzer organization, or provide securely injected development/staging environment variables for the intended project.
-2. Confirm the exact project identity before any change.
-3. Create or verify a private `financial-ratio-analyzer-private` bucket (or configure the approved bucket name), configure Auth providers and redirect URLs, and supply only untracked local environment values.
-4. Apply `npm run db:migrate` from this repository, inspect application-table schema/index/constraint drift, and do not seed fictional data unless the project is expressly a development environment.
-5. Run live two-user isolation, Auth bootstrap, dataset version, analysis, scenario, Storage upload/signed-read/delete, activity and health checks. Then update this review with actual evidence.
-
-## Second audit status
-
-The post-integration audit cannot be performed until the provider actions above are completed. The local second pass is complete: migration generation, clean PGlite migration/seed/service tests, authorization tests, storage-adapter contract tests and browser-safe health behavior pass. It is not a substitute for PostgreSQL, Supabase Auth or Supabase Storage validation.
+Run `npm run db:live:check` only against an intentionally configured non-production validation environment: it writes and removes synthetic records. It does not seed product demo companies.
 
 ## Final status
 
 | Area | Status |
 | --- | --- |
-| Application schema, migrations and server services | Implemented and locally validated |
-| Frontend service contract | Implemented and documented |
-| PostgreSQL | **BLOCKED**: no authenticated provider project or secure connection details available |
-| Supabase Auth | **BLOCKED**: no authenticated provider project/configuration available |
-| Supabase Storage | **BLOCKED**: no authenticated provider project/private bucket available |
+| Application schema, migrations and server services | Implemented and locally plus live validated |
+| Frontend service contract | Implemented and live-validated through services |
+| PostgreSQL | **VALIDATED**: Session Pooler connection, Drizzle migrations, schema and live persistence checks |
+| Supabase Auth | **VALIDATED**: email/password claims and internal-account mapping with synthetic users |
+| Supabase Storage | **VALIDATED**: private bucket, signed access, metadata linkage and cleanup |
 | Account frontend UI | Pending by design |
 
-The backend is ready to support account/frontend flows **once the documented real Supabase integration gate is completed**. It is not ready to claim real multi-tenant production operation before that validation.
+The backend is ready to support the account/frontend phase. It remains a server-mediated database model until a separately approved client-context RLS design is implemented.

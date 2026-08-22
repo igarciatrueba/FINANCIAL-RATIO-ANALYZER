@@ -91,4 +91,4 @@ Do not automatically create duplicate companies or move local data without confi
 
 ## Provider prerequisites
 
-Before any route adapter is enabled, deployers must configure `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_STORAGE_BUCKET` in server-safe environment configuration. The live project must have migrations applied and a private bucket configured. See [integration-readiness-review.md](integration-readiness-review.md) for the blocked real-infrastructure validation gate.
+Deployers must configure `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_STORAGE_BUCKET` in server-safe environment configuration. The validated deployment uses a Supabase Session Pooler URL for database connectivity, Drizzle migrations for application tables, and a private bucket accessed only through server services. See [integration-readiness-review.md](integration-readiness-review.md) for the live integration evidence and server-mediated RLS decision.

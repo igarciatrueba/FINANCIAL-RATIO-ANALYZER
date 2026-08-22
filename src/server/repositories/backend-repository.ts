@@ -47,24 +47,32 @@ export class BackendRepository {
 
   async upsertInternalUser(identity: AuthenticatedIdentity) {
     const now = new Date();
-    const [user] = await this.database.insert(users).values({
+    const [created] = await this.database.insert(users).values({
       authProvider: identity.provider,
       authProviderUserId: identity.providerUserId,
       email: identity.email.toLowerCase(),
       displayName: identity.displayName,
       avatarUrl: identity.avatarUrl,
       lastLoginAt: now,
-    }).onConflictDoUpdate({
-      target: [users.authProvider, users.authProviderUserId],
-      set: {
-        email: identity.email.toLowerCase(),
-        displayName: identity.displayName,
-        avatarUrl: identity.avatarUrl,
-        lastLoginAt: now,
-        updatedAt: now,
-      },
-    }).returning();
-    return user;
+    }).onConflictDoNothing().returning();
+    if (created) return created;
+
+    const [existing] = await this.database.select().from(users).where(and(
+      eq(users.authProvider, identity.provider),
+      eq(users.authProviderUserId, identity.providerUserId),
+    )).limit(1);
+    if (!existing) {
+      throw new AppError("CONFLICT", "This email is already connected to a different authenticated identity.");
+    }
+
+    const [updated] = await this.database.update(users).set({
+      email: identity.email.toLowerCase(),
+      displayName: identity.displayName,
+      avatarUrl: identity.avatarUrl,
+      lastLoginAt: now,
+      updatedAt: now,
+    }).where(eq(users.id, existing.id)).returning();
+    return updated;
   }
 
   async createWorkspaceWithOwner(input: { name: string; ownerUserId: string }) {
@@ -134,8 +142,9 @@ export class BackendRepository {
       .where(and(...where))
       .orderBy(desc(workspaces.createdAt), desc(workspaces.id))
       .limit(request.limit + 1);
-    const next = items.length > request.limit ? items.pop() : undefined;
-    return { items, nextCursor: next ? `${next.workspace.createdAt.toISOString()}|${next.workspace.id}` : null };
+    const page = items.slice(0, request.limit);
+    const last = items.length > request.limit ? page.at(-1) : undefined;
+    return { items: page, nextCursor: last ? `${last.workspace.createdAt.toISOString()}|${last.workspace.id}` : null };
   }
 
   async addWorkspaceMember(input: { workspaceId: string; userId: string; role: WorkspaceRole }) {
@@ -169,8 +178,9 @@ export class BackendRepository {
       if (cursorConstraint) where.push(cursorConstraint);
     }
     const items = await this.database.select().from(companies).where(and(...where)).orderBy(desc(companies.createdAt), desc(companies.id)).limit(request.limit + 1);
-    const next = items.length > request.limit ? items.pop() : undefined;
-    return { items, nextCursor: next ? `${next.createdAt.toISOString()}|${next.id}` : null };
+    const page = items.slice(0, request.limit);
+    const last = items.length > request.limit ? page.at(-1) : undefined;
+    return { items: page, nextCursor: last ? `${last.createdAt.toISOString()}|${last.id}` : null };
   }
 
   async findCompanyByNameForWorkspace(workspaceId: string, name: string) {
@@ -313,8 +323,9 @@ export class BackendRepository {
       .where(and(...where))
       .orderBy(desc(financialDatasets.createdAt), desc(financialDatasets.id))
       .limit(request.limit + 1);
-    const next = items.length > request.limit ? items.pop() : undefined;
-    return { items, nextCursor: next ? `${next.dataset.createdAt.toISOString()}|${next.dataset.id}` : null };
+    const page = items.slice(0, request.limit);
+    const last = items.length > request.limit ? page.at(-1) : undefined;
+    return { items: page, nextCursor: last ? `${last.dataset.createdAt.toISOString()}|${last.dataset.id}` : null };
   }
 
   async archiveDataset(workspaceId: string, companyId: string, datasetId: string) {
@@ -381,8 +392,9 @@ export class BackendRepository {
       if (cursorConstraint) where.push(cursorConstraint);
     }
     const items = await this.database.select().from(analysisRuns).where(and(...where)).orderBy(desc(analysisRuns.createdAt), desc(analysisRuns.id)).limit(request.limit + 1);
-    const next = items.length > request.limit ? items.pop() : undefined;
-    return { items, nextCursor: next ? encodeAnalysisCursor(next) : null };
+    const page = items.slice(0, request.limit);
+    const last = items.length > request.limit ? page.at(-1) : undefined;
+    return { items: page, nextCursor: last ? encodeAnalysisCursor(last) : null };
   }
 
   async createScenario(input: { workspaceId: string; companyId: string; baseAnalysisRunId: string; sourceDatasetVersionId: string; name: string; description?: string; createdBy: string; assumptions: ScenarioAssumptions }) {
@@ -437,8 +449,9 @@ export class BackendRepository {
       if (cursorConstraint) where.push(cursorConstraint);
     }
     const items = await this.database.select().from(scenarios).where(and(...where)).orderBy(desc(scenarios.createdAt), desc(scenarios.id)).limit(request.limit + 1);
-    const next = items.length > request.limit ? items.pop() : undefined;
-    return { items, nextCursor: next ? `${next.createdAt.toISOString()}|${next.id}` : null };
+    const page = items.slice(0, request.limit);
+    const last = items.length > request.limit ? page.at(-1) : undefined;
+    return { items: page, nextCursor: last ? `${last.createdAt.toISOString()}|${last.id}` : null };
   }
 
   async archiveScenario(workspaceId: string, scenarioId: string) {
@@ -482,8 +495,9 @@ export class BackendRepository {
       if (cursorConstraint) where.push(cursorConstraint);
     }
     const items = await this.database.select().from(files).where(and(...where)).orderBy(desc(files.createdAt), desc(files.id)).limit(request.limit + 1);
-    const next = items.length > request.limit ? items.pop() : undefined;
-    return { items, nextCursor: next ? `${next.createdAt.toISOString()}|${next.id}` : null };
+    const page = items.slice(0, request.limit);
+    const last = items.length > request.limit ? page.at(-1) : undefined;
+    return { items: page, nextCursor: last ? `${last.createdAt.toISOString()}|${last.id}` : null };
   }
 
   async markFileDeleted(workspaceId: string, fileId: string) {
@@ -513,7 +527,8 @@ export class BackendRepository {
       if (cursorConstraint) where.push(cursorConstraint);
     }
     const items = await this.database.select().from(activityEvents).where(and(...where)).orderBy(desc(activityEvents.createdAt), desc(activityEvents.id)).limit(request.limit + 1);
-    const next = items.length > request.limit ? items.pop() : undefined;
-    return { items, nextCursor: next ? `${next.createdAt.toISOString()}|${next.id}` : null };
+    const page = items.slice(0, request.limit);
+    const last = items.length > request.limit ? page.at(-1) : undefined;
+    return { items: page, nextCursor: last ? `${last.createdAt.toISOString()}|${last.id}` : null };
   }
 }

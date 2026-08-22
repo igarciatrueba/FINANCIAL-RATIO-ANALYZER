@@ -12,9 +12,10 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/server/db/run-migrations.ts",
-    "db:seed": "tsx src/server/db/seed.ts",
-    "db:check": "tsx src/server/db/check-connection.ts",
+    "db:migrate": "node --env-file-if-exists=.env.local --import tsx src/server/db/run-migrations.ts",
+    "db:seed": "node --env-file-if-exists=.env.local --import tsx src/server/db/seed.ts",
+    "db:check": "node --env-file-if-exists=.env.local --import tsx src/server/db/check-connection.ts",
+    "db:live:check": "node --env-file-if-exists=.env.local --import tsx src/server/db/live-integration-check.ts",
     "db:setup": "npm run db:migrate && npm run db:seed",
     "db:test": "vitest run --config vitest.backend.config.ts"
   },

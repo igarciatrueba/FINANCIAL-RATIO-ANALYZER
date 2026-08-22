@@ -73,7 +73,7 @@ npm run build
 
 ## Persistent workspace backend
 
-The backend architecture, ERD, authorization matrix, environment requirements, local setup and external production-provisioning boundaries are documented in [docs/backend/accounts-and-persistence-architecture.md](docs/backend/accounts-and-persistence-architecture.md). The latest [integration readiness review](docs/backend/integration-readiness-review.md) records the real-provider blocker, and the [frontend integration contract](docs/backend/frontend-integration-contract.md) defines the future account-service boundary. To use a locally provisioned PostgreSQL database:
+The backend architecture, ERD, authorization matrix, environment requirements, local setup and Supabase integration are documented in [docs/backend/accounts-and-persistence-architecture.md](docs/backend/accounts-and-persistence-architecture.md). The latest [integration readiness review](docs/backend/integration-readiness-review.md) records the live validation evidence, and the [frontend integration contract](docs/backend/frontend-integration-contract.md) defines the future account-service boundary. To use a configured PostgreSQL environment:
 
 ```bash
 npm run db:migrate
@@ -82,7 +82,7 @@ npm run db:check
 npm run db:test
 ```
 
-Copy `.env.example` to local environment configuration and set real provider/database values before these commands. No cloud database, Supabase project, authentication provider or private storage bucket is provisioned by this repository.
+Copy `.env.example` to local environment configuration and set real provider/database values before these commands. `npm run db:live:check` additionally runs a synthetic, self-cleaning validation against an intentionally configured non-production Supabase environment. No cloud credential is stored in this repository.
 
 Phase 10 validation records the current test count in the final QA report; this count will naturally grow as coverage evolves.
 

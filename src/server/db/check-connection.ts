@@ -1,10 +1,14 @@
 import { sql } from "drizzle-orm";
 
-import { getDatabase } from "@/server/db/client";
+import { closeDatabaseConnection, getDatabase } from "@/server/db/client";
 
 async function main() {
-  await getDatabase().execute(sql`select 1 as database_connection`);
-  console.info("Database connectivity check passed.");
+  try {
+    await getDatabase().execute(sql`select 1 as database_connection`);
+    console.info("Database connectivity check passed.");
+  } finally {
+    await closeDatabaseConnection();
+  }
 }
 
 void main().catch((error: unknown) => {

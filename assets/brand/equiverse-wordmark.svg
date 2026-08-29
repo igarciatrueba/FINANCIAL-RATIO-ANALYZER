@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="250" viewBox="0 0 1200 250" fill="none">
+  <defs>
+    <mask id="q-ring" maskUnits="userSpaceOnUse" x="150" y="30" width="174" height="190">
+      <rect width="1200" height="250" fill="white"/>
+      <path d="M241 150 285 197 227 197 198 166Z" fill="black"/>
+    </mask>
+  </defs>
+  <g fill="#F8FAFC">
+    <path d="M20 38h106v29H20zM20 110h106v29H20zM20 182h106v29H20z"/>
+    <circle cx="212" cy="124" r="76" stroke="#F8FAFC" stroke-width="31" mask="url(#q-ring)"/>
+    <path d="M314 48h31v91c0 30 14 46 39 46s39-16 39-46V48h31v94c0 49-28 75-70 75s-70-26-70-75z"/>
+    <path d="M476 48h31v169h-31z"/>
+    <path d="M529 48h34l46 126 47-126h34l-66 169h-29z"/>
+    <path d="M711 48h112v29h-81v39h76v29h-76v43h81v29H711z"/>
+    <path d="M847 48h61c39 0 65 22 65 58 0 27-14 47-37 55l43 56h-39l-38-51h-24v51h-31zm31 29v60h28c23 0 36-11 36-30s-13-30-36-30z"/>
+    <path d="M1080 48h100v29h-100zM1080 110h100v29h-100zM1080 182h100v29h-100z"/>
+    <path d="M1007 49c-43 0-65 23-65 51 0 29 23 41 60 52 29 9 39 14 39 25 0 10-9 17-27 17-20 0-39-8-55-24l-20 24c19 20 43 29 74 29 39 0 64-21 64-53 0-33-24-43-62-55-28-9-37-14-37-25 0-9 9-16 28-16 17 0 32 7 45 19l20-24c-16-16-36-25-64-25z"/>
+  </g>
+  <path d="M200 161h31l43 46h-45l-29-32z" fill="#60A5FA"/>
+</svg>

@@ -1,9 +1,11 @@
 import Link from "next/link";
 
+import { EquiverseLogo } from "@/components/brand/equiverse-logo";
 import { AnalyticalNavigation } from "@/components/layout/navigation";
 import { PageIntro } from "@/components/layout/page-intro";
 import { PremiumCursorGlow } from "@/components/layout/premium-cursor-glow";
 import { Button } from "@/components/ui/button";
+import { BRAND } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 type AppShellProps = {
@@ -23,7 +25,7 @@ const pageEyebrows: Record<string, string> = {
   "/methodology": "Transparent Methodology",
 };
 
-export function AppShell({ children, currentPath, title = "Financial Ratio Analyzer", subtitle }: AppShellProps) {
+export function AppShell({ children, currentPath, title = BRAND.name, subtitle }: AppShellProps) {
   return (
     <div className="premium-shell min-h-screen bg-background text-neutral-50">
       <PremiumCursorGlow />
@@ -37,9 +39,8 @@ export function AppShell({ children, currentPath, title = "Financial Ratio Analy
       <header className="sticky top-0 z-50 bg-background/90 px-3 pt-3 backdrop-blur-md print:hidden md:px-6" data-sticky-header="true">
         <div className="premium-panel mx-auto grid max-w-[1340px] gap-2 rounded-xl px-3 py-2 backdrop-blur-xl xl:grid-cols-[minmax(17rem,1fr)_auto_minmax(13rem,1fr)] xl:items-center md:px-4">
           <div className="flex min-w-0 items-center gap-3">
-            <Link aria-label="Financial Ratio Analyzer home" className="flex min-w-0 items-center gap-2.5" href="/">
-              <span aria-hidden="true" className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-gradient-to-br from-primary to-blue-400 text-sm font-bold text-white shadow-[0_0_20px_rgb(37_99_235/0.4)]">↗</span>
-              <span className="truncate text-small font-semibold tracking-tight text-neutral-50">Financial Ratio Analyzer</span>
+            <Link aria-label={`${BRAND.name} home`} className="flex min-w-0 items-center" href={BRAND.homeHref}>
+              <EquiverseLogo className="h-6 w-auto sm:h-7" priority />
             </Link>
             <span className="hidden h-5 w-px bg-border 2xl:block" />
             <div className="hidden min-w-0 2xl:block">

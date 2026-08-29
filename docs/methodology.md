@@ -1,8 +1,8 @@
-# Methodology
+# EQUIVERSE Methodology
 
 ## Overview
 
-The Financial Ratio Analyzer is a deterministic educational analysis tool for three annual reporting periods. It validates a canonical input, calculates registered financial metrics, produces DuPont and Financial Health Score outputs, and exposes rule-based insights. It is not a credit rating, audit opinion, investment recommendation or substitute for professional judgement.
+EQUIVERSE, formerly Financial Ratio Analyzer, is a deterministic educational analysis tool for three annual reporting periods. It validates a canonical input, calculates registered financial metrics, produces DuPont and Financial Health Score outputs, and exposes rule-based insights. It is not a credit rating, audit opinion, investment recommendation or substitute for professional judgement.
 
 ## Documentation map
 

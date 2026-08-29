@@ -13,6 +13,8 @@ describe("Phase 6 final dashboard shell navigation", () => {
     );
 
     const navigation = screen.getByRole("navigation", { name: /global navigation/i });
+    expect(screen.getByRole("link", { name: "EQUIVERSE home" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("img", { name: "EQUIVERSE" })).toBeVisible();
     expect(within(navigation).getByRole("link", { name: /overview/i })).toHaveAttribute("aria-current", "page");
     expect(within(navigation).getByRole("link", { name: /financial input/i })).toHaveAttribute("href", "/input");
     expect(within(navigation).getByRole("link", { name: /ratio analysis/i })).toHaveAttribute("href", "/analysis/ratios");
@@ -41,6 +43,6 @@ describe("Phase 6 final dashboard shell navigation", () => {
     await user.tab();
     expect(screen.getByRole("link", { name: /skip to content/i })).toHaveFocus();
     await user.tab();
-    expect(screen.getByRole("link", { name: /financial ratio analyzer/i })).toHaveFocus();
+    expect(screen.getByRole("link", { name: "EQUIVERSE home" })).toHaveFocus();
   });
 });

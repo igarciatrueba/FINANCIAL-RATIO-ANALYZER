@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { ArrowRight, BookOpen, ChartNoAxesCombined, CircleCheck, GitBranch, Network, SlidersHorizontal, Sparkles } from "lucide-react";
 
+import { EquiverseLogo } from "@/components/brand/equiverse-logo";
 import { Button } from "@/components/ui/button";
 import type { PremiumLandingViewModel } from "@/features/premium-landing/lib/build-premium-landing-view-model";
+import { BRAND } from "@/lib/brand";
 
 const capabilitySections = [
   { number: "01", id: "health", title: "Financial Health", text: "One transparent view across profitability, liquidity, solvency, efficiency and cash flow.", href: "/analysis", icon: ChartNoAxesCombined },
@@ -45,9 +47,8 @@ export function PremiumLanding({ viewModel }: { viewModel: PremiumLandingViewMod
 
       <header className="sticky top-0 z-40 px-3 pt-3 md:px-6">
         <div className="premium-panel mx-auto flex max-w-[1340px] items-center justify-between gap-4 rounded-xl px-4 py-2.5 backdrop-blur-xl">
-          <Link className="flex shrink-0 items-center gap-2.5" href="/">
-            <span aria-hidden="true" className="grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-primary to-blue-400 font-bold shadow-[0_0_20px_rgb(37_99_235/0.42)]">↗</span>
-            <span className="truncate text-small font-semibold tracking-tight">Financial Ratio Analyzer</span>
+          <Link aria-label={`${BRAND.name} home`} className="flex shrink-0 items-center" href={BRAND.homeHref}>
+            <EquiverseLogo className="h-6 w-auto sm:h-7" priority />
           </Link>
           <nav aria-label="Landing navigation" className="hidden items-center gap-5 text-caption text-neutral-400 lg:flex">
             <a href="#capabilities">Capabilities</a><a href="#dupont">DuPont</a><a href="#scenarios">Scenarios</a><a href="#engine">Engine</a><Link href="/methodology">Methodology</Link>
@@ -91,7 +92,7 @@ export function PremiumLanding({ viewModel }: { viewModel: PremiumLandingViewMod
 
       <section className="relative z-10 mx-auto max-w-[1340px] px-5 py-28 text-center sm:px-8"><p className="premium-kicker">The complete analytical workspace</p><h2 className="mx-auto mt-4 max-w-4xl text-[clamp(2.4rem,5vw,5rem)] font-semibold leading-[1.02] tracking-tight">Move from financial statements to the signals worth discussing.</h2><p className="mx-auto mt-6 max-w-2xl text-body text-neutral-400">Start with a fictional demo company or enter three annual periods for your own educational analysis.</p><div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row"><Button asChild><Link href="/input">Begin financial input <ArrowRight aria-hidden="true" className="h-4 w-4" /></Link></Button><Button asChild variant="secondary"><Link href="/methodology">Read the methodology</Link></Button></div></section>
 
-      <footer className="relative z-10 border-t border-border px-5 py-8 sm:px-8"><div className="mx-auto flex max-w-[1340px] flex-col justify-between gap-4 text-caption text-neutral-500 sm:flex-row"><span>Financial Ratio Analyzer · Educational financial analysis</span><span>No credit rating · No audit opinion · No investment recommendation</span></div></footer>
+      <footer className="relative z-10 border-t border-border px-5 py-8 sm:px-8"><div className="mx-auto flex max-w-[1340px] flex-col justify-between gap-4 text-caption text-neutral-500 sm:flex-row"><span>{BRAND.name} · Educational financial analysis</span><span>No credit rating · No audit opinion · No investment recommendation</span></div></footer>
     </main>
   );
 }

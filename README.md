@@ -1,6 +1,6 @@
-# Financial Ratio Analyzer
+# EQUIVERSE
 
-![Financial Ratio Analyzer banner](assets/repository-banner.svg)
+![EQUIVERSE banner](assets/repository-banner.svg)
 
 Transparent, deterministic financial health analysis for simplified three-period financial statements.
 
@@ -8,7 +8,7 @@ Transparent, deterministic financial health analysis for simplified three-period
 
 ## Product overview
 
-Financial Ratio Analyzer validates canonical financial statements, calculates registered ratios, explains Return on Equity through DuPont, creates a transparent Financial Health Score, generates deterministic evidence-backed insights, and compares statement-based scenarios.
+EQUIVERSE, formerly Financial Ratio Analyzer, validates canonical financial statements, calculates registered ratios, explains Return on Equity through DuPont, creates a transparent Financial Health Score, generates deterministic evidence-backed insights, and compares statement-based scenarios.
 
 ## Key features
 

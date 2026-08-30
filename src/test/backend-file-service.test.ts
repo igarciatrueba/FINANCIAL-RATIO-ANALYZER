@@ -20,6 +20,12 @@ class MemoryStorage implements StorageService {
     this.objects.set(input.key, input.body);
   }
 
+  async download(key: string) {
+    const object = this.objects.get(key);
+    if (!object) throw new AppError("STORAGE_ERROR", "Missing test object.");
+    return object;
+  }
+
   async getSignedUrl(key: string) {
     if (!this.objects.has(key)) throw new AppError("STORAGE_ERROR", "Missing test object.");
     return `memory://private/${key}`;

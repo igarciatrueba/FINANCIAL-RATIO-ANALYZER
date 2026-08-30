@@ -18,6 +18,12 @@ export class SupabaseStorageService implements StorageService {
     if (error) throw new AppError("STORAGE_ERROR", "The file could not be stored safely.");
   }
 
+  async download(key: string) {
+    const { data, error } = await this.client.storage.from(this.bucket).download(key);
+    if (error || !data) throw new AppError("STORAGE_ERROR", "The private file could not be read safely.");
+    return new Uint8Array(await data.arrayBuffer());
+  }
+
   async getSignedUrl(key: string, expiresInSeconds: number) {
     const { data, error } = await this.client.storage.from(this.bucket).createSignedUrl(key, expiresInSeconds);
     if (error || !data?.signedUrl) throw new AppError("STORAGE_ERROR", "A private file link could not be created.");

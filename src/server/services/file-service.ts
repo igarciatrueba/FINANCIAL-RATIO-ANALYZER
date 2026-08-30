@@ -72,6 +72,14 @@ export class FileService {
     return this.requireStorage().getSignedUrl(file.storageKey, 60 * 5);
   }
 
+  async downloadForProcessing(actorUserId: string, workspaceId: string, fileId: string) {
+    await this.authorization.requireWorkspaceAction(actorUserId, workspaceId, "manage-files");
+    if (!z.string().uuid().safeParse(fileId).success) throw new AppError("VALIDATION_ERROR", "A valid file identifier is required.");
+    const file = await this.repository.findFileForWorkspace(workspaceId, fileId);
+    if (!file) throw new AppError("NOT_FOUND", "The requested file is not available in this workspace.");
+    return { file, bytes: await this.requireStorage().download(file.storageKey) };
+  }
+
   async list(actorUserId: string, workspaceId: string, request: unknown, companyId?: string) {
     await this.authorization.requireWorkspaceAction(actorUserId, workspaceId, "read");
     if (companyId) await this.authorization.requireCompanyAccess(actorUserId, workspaceId, companyId, "read");

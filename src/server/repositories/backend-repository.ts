@@ -525,9 +525,50 @@ export class BackendRepository {
     normalizedValue?: string;
     confidence: "high" | "medium" | "low";
     sourceEvidence: Record<string, unknown>;
+    diagnostics?: Record<string, unknown>;
+    sourceCandidateIds?: string[];
   }) {
-    const [candidate] = await this.database.insert(documentExtractionCandidates).values({ ...input, diagnostics: {}, sourceCandidateIds: [] }).returning();
+    const [candidate] = await this.database.insert(documentExtractionCandidates).values({
+      ...input,
+      diagnostics: input.diagnostics ?? {},
+      sourceCandidateIds: input.sourceCandidateIds ?? [],
+    }).returning();
     return candidate;
+  }
+
+  async startDocumentExtractionRun(workspaceId: string, runId: string) {
+    const [run] = await this.database.update(documentExtractionRuns).set({ status: "processing", startedAt: new Date(), updatedAt: new Date() }).where(and(
+      eq(documentExtractionRuns.workspaceId, workspaceId),
+      eq(documentExtractionRuns.id, runId),
+    )).returning();
+    return run ?? null;
+  }
+
+  async completeDocumentExtractionRun(workspaceId: string, runId: string, documentSummary: Record<string, unknown>) {
+    const [run] = await this.database.update(documentExtractionRuns).set({
+      status: "ready_for_review",
+      documentSummary,
+      completedAt: new Date(),
+      updatedAt: new Date(),
+    }).where(and(
+      eq(documentExtractionRuns.workspaceId, workspaceId),
+      eq(documentExtractionRuns.id, runId),
+    )).returning();
+    return run ?? null;
+  }
+
+  async failDocumentExtractionRun(workspaceId: string, runId: string, safeFailureCode: string, safeFailureMessage: string) {
+    const [run] = await this.database.update(documentExtractionRuns).set({
+      status: "failed",
+      safeFailureCode,
+      safeFailureMessage,
+      completedAt: new Date(),
+      updatedAt: new Date(),
+    }).where(and(
+      eq(documentExtractionRuns.workspaceId, workspaceId),
+      eq(documentExtractionRuns.id, runId),
+    )).returning();
+    return run ?? null;
   }
 
   async upsertDocumentExtractionDraftField(input: {

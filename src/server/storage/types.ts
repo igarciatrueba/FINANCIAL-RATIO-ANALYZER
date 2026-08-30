@@ -2,6 +2,7 @@ export type UploadObjectInput = { key: string; body: Uint8Array; mimeType: strin
 
 export interface StorageService {
   upload(input: UploadObjectInput): Promise<void>;
+  download(key: string): Promise<Uint8Array>;
   getSignedUrl(key: string, expiresInSeconds: number): Promise<string>;
   delete(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;

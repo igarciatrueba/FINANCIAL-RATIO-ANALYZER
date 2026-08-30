@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "product": "Financial Ratio Analyzer",
+  "features": [
+    {
+      "id": "product-entry-and-navigation",
+      "name": "Product entry and accessible navigation",
+      "screens": [
+        "/"
+      ],
+      "inputs": [
+        "landing CTAs",
+        "top-level navigation"
+      ],
+      "outputs": [
+        "truthful product context",
+        "routes into input, methodology and architecture"
+      ],
+      "domainDependencies": [],
+      "interactions": [
+        "start analysis",
+        "discover methodology",
+        "discover Engine Map",
+        "keyboard navigation"
+      ],
+      "states": [
+        "static without analysis session",
+        "responsive navigation"
+      ],
+      "mustPreserve": true
+    },
+    {
+      "id": "canonical-financial-input",
+      "name": "Three-period canonical financial input",
+      "screens": ["/input"],
+      "inputs": ["company context", "three years", "income statement", "balance sheet", "cash flow", "working capital"],
+      "outputs": ["FinancialAnalysisInput", "validation feedback"],
+      "domainDependencies": ["parsePlainNumber", "transformFormValuesToCanonical", "parseFinancialAnalysisInput"],
+      "interactions": ["blur validation", "free step navigation", "review", "analyse"],
+      "states": ["valid", "blocking error", "warning", "information"],
+      "mustPreserve": true
+    },
+    {
+      "id": "demo-and-draft",
+      "name": "Editable fictional demos and local draft",
+      "screens": ["/input"],
+      "inputs": ["NovaTech Solutions", "Atlas Manufacturing Group"],
+      "outputs": ["copied form values", "versioned local draft"],
+      "domainDependencies": ["cloneDemoCompany", "recoverInputDraft"],
+      "interactions": ["load demo", "autosave", "restore", "reset"],
+      "states": ["empty", "restored", "corrupt draft discarded"],
+      "mustPreserve": true
+    },
+    {
+      "id": "analysis-session-and-dashboard",
+      "name": "Canonical analysis session and executive dashboard",
+      "screens": ["/analysis"],
+      "inputs": ["validated active analysis session"],
+      "outputs": ["score", "coverage", "KPIs", "dimensions", "drivers", "insights", "charts", "ratio table"],
+      "domainDependencies": ["recoverActiveAnalysisSession", "analyseFinancialStatements", "buildExecutiveDashboardViewModel"],
+      "interactions": ["edit financials", "methodology", "print"],
+      "states": ["loading", "empty", "corrupt", "invalid", "analysis failure", "score unavailable"],
+      "mustPreserve": true
+    },
+    {
+      "id": "ratio-analysis",
+      "name": "Registered ratio inspection",
+      "screens": ["/analysis/ratios"],
+      "inputs": ["ratio category", "metric selector"],
+      "outputs": ["current/prior/delta", "trend", "formula", "interpretation", "availability"],
+      "domainDependencies": ["formulaRegistry", "buildRatioAnalysisViewModel"],
+      "interactions": ["select category", "select metric", "expand detail", "scroll table"],
+      "states": ["available", "unavailable with reason", "session recovery states"],
+      "mustPreserve": true
+    },
+    {
+      "id": "dupont-analysis",
+      "name": "DuPont ROE analysis and attribution",
+      "screens": ["/analysis/dupont"],
+      "inputs": ["active analysis session"],
+      "outputs": ["ROE identity", "factor history", "Shapley contributions", "reconciliation", "explanation"],
+      "domainDependencies": ["calculateDuPont", "calculateDupontDriverAttribution", "buildDupontAnalysisViewModel"],
+      "interactions": ["methodology disclosure", "navigation links"],
+      "states": ["reconciled", "approximate", "unavailable", "attribution failure", "session recovery states"],
+      "mustPreserve": true
+    },
+    {
+      "id": "scenario-lab",
+      "name": "Statement-based scenario comparison",
+      "screens": ["/scenario"],
+      "inputs": ["complete ScenarioAssumptions", "five presets", "manual controls"],
+      "outputs": ["transformed statements", "score/dimension/metric/insight/DuPont comparison"],
+      "domainDependencies": ["applyScenario", "parseFinancialAnalysisInput", "analyseFinancialStatements", "buildScenarioComparisonViewModel"],
+      "interactions": ["select preset", "change assumption", "reset Base Case"],
+      "states": ["base", "success", "transformation error", "canonical error", "analysis error"],
+      "mustPreserve": true
+    },
+    {
+      "id": "methodology-and-engine-map",
+      "name": "Methodology and engine transparency",
+      "screens": ["/methodology", "/engine-map"],
+      "inputs": ["selected engine stage"],
+      "outputs": ["formula/scoring limits", "stage metadata", "provenance", "scenario reuse"],
+      "domainDependencies": ["formulaRegistry", "defaultScoringConfig", "buildEngineMapViewModel"],
+      "interactions": ["select stage", "open disclosures", "follow documentation"],
+      "states": ["static available"],
+      "mustPreserve": true
+    },
+    {
+      "id": "accessibility-print-responsive",
+      "name": "Cross-cutting accessibility, print and responsiveness",
+      "screens": ["all"],
+      "inputs": ["keyboard", "reduced-motion preference", "print command", "small viewport"],
+      "outputs": ["visible focus", "semantic state text", "chart summary", "printable report"],
+      "domainDependencies": [],
+      "interactions": ["keyboard navigation", "local table scroll", "skip link"],
+      "states": ["320px layout", "reduced motion", "print"],
+      "mustPreserve": true
+    }
+  ]
+}

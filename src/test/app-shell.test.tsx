@@ -11,12 +11,10 @@ describe("Phase 1 application shell", () => {
 
     expect(routeLabels).toEqual([
       "Overview",
-      "Financial Input",
       "Ratio Analysis",
       "DuPont Analysis",
       "Scenario Lab",
       "Engine Map",
-      "Methodology",
     ]);
   });
 
@@ -30,10 +28,7 @@ describe("Phase 1 application shell", () => {
     const primaryNavigation = screen.getByRole("navigation", { name: "Global navigation" });
 
     expect(primaryNavigation).toBeInTheDocument();
-    expect(within(primaryNavigation).getByRole("link", { name: /financial input/i })).toHaveAttribute(
-      "href",
-      "/input"
-    );
+    expect(within(primaryNavigation).queryByRole("link", { name: /financial input/i })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Foundation page" })).toBeInTheDocument();
   });
 

@@ -16,11 +16,12 @@ describe("Phase 6 final dashboard shell navigation", () => {
     expect(screen.getByRole("link", { name: "EQUIVERSE home" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("img", { name: "EQUIVERSE" })).toBeVisible();
     expect(within(navigation).getByRole("link", { name: /overview/i })).toHaveAttribute("aria-current", "page");
-    expect(within(navigation).getByRole("link", { name: /financial input/i })).toHaveAttribute("href", "/input");
+    expect(within(navigation).queryByRole("link", { name: /financial input/i })).not.toBeInTheDocument();
     expect(within(navigation).getByRole("link", { name: /ratio analysis/i })).toHaveAttribute("href", "/analysis/ratios");
     expect(within(navigation).getByRole("link", { name: /dupont analysis/i })).toHaveAttribute("href", "/analysis/dupont");
     expect(within(navigation).getByRole("link", { name: /scenario lab/i })).toHaveAttribute("href", "/scenario");
-    expect(within(navigation).getByRole("link", { name: /methodology/i })).toHaveAttribute("href", "/methodology");
+    expect(within(navigation).queryByRole("link", { name: /methodology/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /edit financials/i })).not.toBeInTheDocument();
     expect(document.querySelector("aside")).not.toBeInTheDocument();
   });
 

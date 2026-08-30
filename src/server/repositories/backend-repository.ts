@@ -9,6 +9,9 @@ import {
   analysisResults,
   analysisRuns,
   companies,
+  documentExtractionCandidates,
+  documentExtractionDraftFields,
+  documentExtractionRuns,
   files,
   financialDatasets,
   financialDatasetVersions,
@@ -507,6 +510,66 @@ export class BackendRepository {
       isNull(files.deletedAt),
     )).returning();
     return file ?? null;
+  }
+
+  async createDocumentExtractionRun(input: { workspaceId: string; fileId: string; requestedBy: string; companyId?: string; engineVersion: string; documentSummary: Record<string, unknown> }) {
+    const [run] = await this.database.insert(documentExtractionRuns).values(input).returning();
+    return run;
+  }
+
+  async createDocumentExtractionCandidate(input: {
+    runId: string;
+    canonicalFieldKey: string;
+    periodSlotIndex: number;
+    candidateKind: "direct" | "aggregation" | "average";
+    normalizedValue?: string;
+    confidence: "high" | "medium" | "low";
+    sourceEvidence: Record<string, unknown>;
+  }) {
+    const [candidate] = await this.database.insert(documentExtractionCandidates).values({ ...input, diagnostics: {}, sourceCandidateIds: [] }).returning();
+    return candidate;
+  }
+
+  async upsertDocumentExtractionDraftField(input: {
+    runId: string;
+    canonicalFieldKey: string;
+    periodSlotIndex: number;
+    currentCandidateId?: string;
+    originalCandidateId?: string;
+    provenanceType: "PDF_EXTRACTED" | "USER_PROVIDED" | "USER_OVERRIDE" | "DERIVED" | "NOT_FOUND" | "CONFLICT";
+    reviewState: "UNREVIEWED" | "NEEDS_REVIEW" | "USER_CONFIRMED";
+    formValue?: string;
+  }) {
+    const [field] = await this.database.insert(documentExtractionDraftFields).values({
+      ...input,
+      currentCandidateId: input.currentCandidateId ?? null,
+      originalCandidateId: input.originalCandidateId ?? null,
+      formValue: input.formValue ?? null,
+    }).onConflictDoUpdate({
+      target: [documentExtractionDraftFields.runId, documentExtractionDraftFields.canonicalFieldKey, documentExtractionDraftFields.periodSlotIndex],
+      set: {
+        currentCandidateId: input.currentCandidateId ?? null,
+        originalCandidateId: input.originalCandidateId ?? null,
+        provenanceType: input.provenanceType,
+        reviewState: input.reviewState,
+        formValue: input.formValue ?? null,
+        updatedAt: new Date(),
+      },
+    }).returning();
+    return field;
+  }
+
+  async getDocumentExtractionRunForWorkspace(workspaceId: string, runId: string) {
+    const [run] = await this.database.select().from(documentExtractionRuns).where(and(
+      eq(documentExtractionRuns.workspaceId, workspaceId),
+      eq(documentExtractionRuns.id, runId),
+    )).limit(1);
+    if (!run) return null;
+    const [candidates, draftFields] = await Promise.all([
+      this.database.select().from(documentExtractionCandidates).where(eq(documentExtractionCandidates.runId, run.id)),
+      this.database.select().from(documentExtractionDraftFields).where(eq(documentExtractionDraftFields.runId, run.id)),
+    ]);
+    return { run, candidates, draftFields };
   }
 
   async recordActivity(input: { workspaceId: string; userId?: string; companyId?: string; eventType: string; entityType: string; entityId?: string; metadata?: Record<string, string | number | boolean | null> }) {

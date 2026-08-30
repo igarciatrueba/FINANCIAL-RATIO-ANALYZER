@@ -11,6 +11,11 @@ export const valueSourceTypeEnum = pgEnum("value_source_type", ["manual", "demo"
 export const analysisRunStatusEnum = pgEnum("analysis_run_status", ["pending", "running", "completed", "failed", "cancelled"]);
 export const analysisResultTypeEnum = pgEnum("analysis_result_type", ["financial_analysis"]);
 export const fileCategoryEnum = pgEnum("file_category", ["financial_input", "source_document", "import", "report"]);
+export const documentExtractionStatusEnum = pgEnum("document_extraction_status", ["pending", "processing", "ready_for_review", "failed", "unsupported", "superseded"]);
+export const documentExtractionCandidateKindEnum = pgEnum("document_extraction_candidate_kind", ["direct", "aggregation", "average"]);
+export const documentExtractionConfidenceEnum = pgEnum("document_extraction_confidence", ["high", "medium", "low"]);
+export const documentExtractionProvenanceEnum = pgEnum("document_extraction_provenance", ["PDF_EXTRACTED", "USER_PROVIDED", "USER_OVERRIDE", "DERIVED", "NOT_FOUND", "CONFLICT"]);
+export const documentExtractionReviewStateEnum = pgEnum("document_extraction_review_state", ["UNREVIEWED", "NEEDS_REVIEW", "USER_CONFIRMED"]);
 
 const id = () => uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID());
 const createdAt = () => timestamp("created_at", { withTimezone: true }).defaultNow().notNull();
@@ -198,6 +203,64 @@ export const files = pgTable("files", {
   uniqueIndex("files_storage_key_unique").on(table.storageKey),
   index("files_workspace_created_at_idx").on(table.workspaceId, table.createdAt),
   index("files_company_id_idx").on(table.companyId),
+]);
+
+export const documentExtractionRuns = pgTable("document_extraction_runs", {
+  id: id(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "restrict" }),
+  fileId: uuid("file_id").notNull().references(() => files.id, { onDelete: "restrict" }),
+  companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
+  requestedBy: uuid("requested_by").references(() => users.id, { onDelete: "set null" }),
+  status: documentExtractionStatusEnum("status").notNull().default("pending"),
+  engineVersion: varchar("engine_version", { length: 128 }).notNull(),
+  schemaVersion: integer("schema_version").notNull().default(1),
+  documentSummary: jsonb("document_summary").$type<Record<string, unknown>>().notNull().default({}),
+  safeFailureCode: varchar("safe_failure_code", { length: 128 }),
+  safeFailureMessage: text("safe_failure_message"),
+  confirmedDatasetVersionId: uuid("confirmed_dataset_version_id").references(() => financialDatasetVersions.id, { onDelete: "restrict" }),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (table) => [
+  index("document_extraction_runs_workspace_created_at_idx").on(table.workspaceId, table.createdAt),
+  index("document_extraction_runs_file_id_idx").on(table.fileId),
+  index("document_extraction_runs_company_id_idx").on(table.companyId),
+]);
+
+export const documentExtractionCandidates = pgTable("document_extraction_candidates", {
+  id: id(),
+  runId: uuid("run_id").notNull().references(() => documentExtractionRuns.id, { onDelete: "cascade" }),
+  canonicalFieldKey: varchar("canonical_field_key", { length: 128 }).notNull(),
+  periodSlotIndex: integer("period_slot_index").notNull(),
+  candidateKind: documentExtractionCandidateKindEnum("candidate_kind").notNull(),
+  normalizedValue: numeric("normalized_value", { precision: 20, scale: 6 }),
+  confidence: documentExtractionConfidenceEnum("confidence").notNull(),
+  sourceEvidence: jsonb("source_evidence").$type<Record<string, unknown>>().notNull(),
+  diagnostics: jsonb("diagnostics").$type<Record<string, unknown>>().notNull().default({}),
+  sourceCandidateIds: jsonb("source_candidate_ids").$type<string[]>().notNull().default([]),
+  createdAt: createdAt(),
+}, (table) => [
+  index("document_extraction_candidates_run_field_slot_idx").on(table.runId, table.canonicalFieldKey, table.periodSlotIndex),
+  index("document_extraction_candidates_run_confidence_idx").on(table.runId, table.confidence),
+]);
+
+export const documentExtractionDraftFields = pgTable("document_extraction_draft_fields", {
+  id: id(),
+  runId: uuid("run_id").notNull().references(() => documentExtractionRuns.id, { onDelete: "cascade" }),
+  canonicalFieldKey: varchar("canonical_field_key", { length: 128 }).notNull(),
+  periodSlotIndex: integer("period_slot_index").notNull(),
+  currentCandidateId: uuid("current_candidate_id").references(() => documentExtractionCandidates.id, { onDelete: "set null" }),
+  originalCandidateId: uuid("original_candidate_id").references(() => documentExtractionCandidates.id, { onDelete: "set null" }),
+  provenanceType: documentExtractionProvenanceEnum("provenance_type").notNull(),
+  reviewState: documentExtractionReviewStateEnum("review_state").notNull(),
+  formValue: text("form_value"),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (table) => [
+  uniqueIndex("document_extraction_draft_fields_run_field_slot_unique").on(table.runId, table.canonicalFieldKey, table.periodSlotIndex),
+  index("document_extraction_draft_fields_run_id_idx").on(table.runId),
 ]);
 
 export const activityEvents = pgTable("activity_events", {

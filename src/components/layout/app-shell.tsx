@@ -36,8 +36,8 @@ export function AppShell({ children, currentPath, title = BRAND.name, subtitle }
         Skip to content
       </a>
 
-      <header className="sticky top-0 z-50 bg-background/90 px-3 pt-3 backdrop-blur-md print:hidden md:px-6" data-sticky-header="true">
-        <div className="premium-panel mx-auto grid max-w-[1340px] gap-2 rounded-xl px-3 py-2 backdrop-blur-xl xl:grid-cols-[minmax(17rem,1fr)_auto_minmax(13rem,1fr)] xl:items-center md:px-4">
+      <header className="sticky top-0 z-50 bg-transparent px-3 pt-3 print:hidden md:px-6" data-sticky-header="true">
+        <div className="premium-nav-glass mx-auto grid w-full min-w-0 max-w-[1340px] gap-2 rounded-xl px-3 py-2 xl:grid-cols-[minmax(17rem,1fr)_auto_minmax(13rem,1fr)] xl:items-center md:px-4">
           <div className="flex min-w-0 items-center gap-3">
             <Link aria-label={`${BRAND.name} home`} className="flex min-w-0 items-center" href={BRAND.homeHref}>
               <EquiverseLogo className="h-6 w-auto sm:h-7" priority />

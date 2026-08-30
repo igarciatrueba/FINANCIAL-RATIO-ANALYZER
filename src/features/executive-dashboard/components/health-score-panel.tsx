@@ -30,7 +30,7 @@ export function HealthScorePanel({ viewModel }: HealthScorePanelProps) {
   return (
     <section
       aria-labelledby="health-score-heading"
-      className="premium-panel relative overflow-hidden rounded-lg p-6 md:p-8"
+      className="crystal-surface premium-score-shift relative overflow-hidden rounded-lg p-6 md:p-8"
       role="region"
     >
       <div className="flex flex-col gap-4">
@@ -45,7 +45,7 @@ export function HealthScorePanel({ viewModel }: HealthScorePanelProps) {
         </div>
 
         <div aria-label={viewModel.score.accessibleLabel} className="grid gap-4" role="img">
-          <div className="border-y border-border py-6">
+          <div className="analytical-surface py-6">
             <p className="flex items-center gap-2 text-caption uppercase text-neutral-400">
               <BarChart3 aria-hidden="true" className="h-3.5 w-3.5" />
               Current period score

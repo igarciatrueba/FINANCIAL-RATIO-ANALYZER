@@ -11,11 +11,11 @@ export const chartTheme = {
     mutedText: "#a7b0c0",
     grid: "rgba(167, 176, 192, 0.12)",
     axis: "rgba(167, 176, 192, 0.22)",
-    surface: "#111722",
-    border: "#202a38",
+    surface: "rgba(17, 23, 34, 0.94)",
+    border: "rgba(147, 197, 253, 0.26)",
   },
-  fontFamily: "Inter, system-ui, sans-serif",
-  monoFontFamily: '"JetBrains Mono", ui-monospace, monospace',
+  fontFamily: "Inter, Arial, sans-serif",
+  monoFontFamily: "Inter, Arial, sans-serif",
 };
 
 export function baseTooltip() {
@@ -23,6 +23,8 @@ export function baseTooltip() {
     backgroundColor: chartTheme.colors.surface,
     borderColor: chartTheme.colors.border,
     borderWidth: 1,
+    padding: [10, 12],
+    extraCssText: "box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 18px 42px rgba(0,0,0,.32); backdrop-filter: blur(14px) saturate(118%); border-radius: 8px;",
     textStyle: {
       color: chartTheme.colors.text,
       fontFamily: chartTheme.fontFamily,

@@ -18,10 +18,10 @@ export function DupontIdentity({ viewModel }: DupontIdentityProps) {
       </div>
 
       <p className="sr-only">{viewModel.identity.text}</p>
-      <div className="mt-7 grid min-w-0 gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] lg:items-stretch">
+      <div className="dupont-network mt-7 grid min-w-0 gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] lg:items-stretch">
         {viewModel.identity.factors.map((factor, index) => (
           <div className="contents premium-dupont-reveal" key={factor.id} style={{ "--dupont-delay": `${index * 100}ms` } as CSSProperties}>
-            <article className="min-w-0 border-t border-border py-5 lg:border-y lg:px-4">
+            <article className="dupont-factor min-w-0 border-t border-border py-5 outline-none lg:border-y lg:px-4" tabIndex={0}>
               <p className="premium-kicker">{factor.label}</p>
               <p className="mt-3 font-mono text-[clamp(2rem,4vw,3.5rem)] font-semibold leading-none text-neutral-50">{factor.current.display}</p>
               <p className="mt-1 text-caption text-neutral-400">Prior {factor.previous.display}</p>
@@ -41,7 +41,7 @@ export function DupontIdentity({ viewModel }: DupontIdentityProps) {
             )}
           </div>
         ))}
-        <article className="premium-dupont-reveal min-w-0 border border-primary/40 bg-primary/10 p-5" style={{ "--dupont-delay": "360ms" } as CSSProperties}>
+        <article className="crystal-surface premium-dupont-reveal min-w-0 rounded-md p-5" style={{ "--dupont-delay": "360ms" } as CSSProperties}>
           <p className="premium-kicker">Return on Equity</p>
           <p className="mt-3 font-mono text-[clamp(2rem,4vw,3.5rem)] font-semibold leading-none text-neutral-50">{viewModel.identity.result.display}</p>
           <p className="mt-3 text-small text-neutral-200">Current ROE produced by the factor product.</p>

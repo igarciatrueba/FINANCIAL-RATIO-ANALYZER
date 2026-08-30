@@ -5,19 +5,21 @@ import { describe, expect, it } from "vitest";
 import { formulaRegistry } from "@/domain/ratios";
 import { defaultScoringConfig, dimensionOrder } from "@/domain/scoring";
 import { scenarioControlOrder, scenarioPresetList } from "@/domain/scenarios";
-import { EngineMap } from "@/features/engine-map";
+import { EngineMap, LandingEngineMapPreview } from "@/features/engine-map";
 import { buildEngineMapViewModel } from "@/features/engine-map/lib/build-engine-map-view-model";
+import { getActiveConnectionIds, getActiveRouteStageIds } from "@/features/engine-map/lib/get-active-route";
 
-describe("Phase 9 Engine Map metadata", () => {
-  it("describes unique connected stages with real responsibilities", () => {
+describe("Engine Map architecture metadata", () => {
+  it("describes unique real stages, routes and connected relationships", () => {
     const model = buildEngineMapViewModel();
     const ids = model.stages.map((stage) => stage.id);
 
     expect(new Set(ids).size).toBe(ids.length);
     expect(model.stages.every((stage) => stage.label && stage.purpose && stage.inputs.length && stage.outputs.length)).toBe(true);
     expect(model.connections.every((connection) => ids.includes(connection.from) && ids.includes(connection.to))).toBe(true);
-    expect(new Set(model.connections.map((connection) => `${connection.from}:${connection.to}`)).size).toBe(model.connections.length);
-    expect(new Set(model.connections.flatMap((connection) => [connection.from, connection.to]))).toEqual(new Set(ids));
+    expect(new Set(model.connections.map((connection) => connection.id)).size).toBe(model.connections.length);
+    expect(model.stages.find((stage) => stage.id === "scenario-lab")?.purpose).toMatch(/revalidates/i);
+    expect(model.stages.find((stage) => stage.id === "dupont-analysis")?.route).toBe("/analysis/dupont");
   });
 
   it("derives registry and configuration counts without duplicating financial metadata", () => {
@@ -29,31 +31,47 @@ describe("Phase 9 Engine Map metadata", () => {
     expect(counts.scenarioPresets).toBe(scenarioPresetList.length);
   });
 
-  it("shows the scenario path reconnecting to canonical validation and the same analysis engine", () => {
+  it("traces an output back through its actual upstream system route", () => {
     const model = buildEngineMapViewModel();
-    expect(model.scenarioReuse.steps).toEqual(expect.arrayContaining(["Base Case", "ScenarioAssumptions", "applyScenario()", "Canonical validation", "Same analysis engine"]));
-    expect(model.scenarioReuse.statement).toMatch(/transforms statements, not analytical outputs/i);
+    const activeStages = getActiveRouteStageIds(model.connections, "dupont-analysis");
+    const activeConnections = getActiveConnectionIds(model.connections, activeStages);
+
+    expect([...activeStages]).toEqual(expect.arrayContaining(["input", "validation", "derivation", "dupont", "analysis-result", "dupont-analysis"]));
+    expect([...activeConnections]).toEqual(expect.arrayContaining(["input-validation", "validation-model", "model-dupont", "dupont-result", "result-dupont"]));
   });
 });
 
-describe("Phase 9 Engine Map interface", () => {
-  it("renders the pipeline, lets keyboard users select a stage, and keeps technical detail secondary", async () => {
+describe("Engine Map interface", () => {
+  it("renders a keyboard-selectable architecture graph with a contextual selected detail panel", async () => {
     const user = userEvent.setup();
     const { container } = render(<EngineMap />);
 
-    expect(screen.getByText(/one analytical engine, many experiences/i)).toBeInTheDocument();
+    expect(screen.getByText(/see how financial data becomes financial intelligence/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /financial input/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /canonical validation/i })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText(/Scenario Lab transforms statements, not analytical outputs/i)).toBeInTheDocument();
-    expect(screen.getByText("Executive Dashboard")).toBeInTheDocument();
-    expect(screen.getByText("DuPont Analysis")).toBeInTheDocument();
-    expect(screen.getByText("Scenario Lab")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /analysis orchestration/i })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByLabelText(/^selected architecture detail$/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/scenario lab re-enters the same validated engine/i)).toBeInTheDocument();
+    expect(screen.getByText(/architecture flow: financial input/i)).toBeInTheDocument();
 
-    await user.tab();
-    await user.keyboard("{Enter}");
-    expect(screen.getByRole("button", { name: /financial input/i })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByLabelText(/selected engine stage detail/i)).toHaveTextContent(/Capture company context/i);
+    await user.click(screen.getByRole("button", { name: /scenario lab/i }));
+    expect(screen.getByRole("button", { name: /scenario lab/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText(/^selected architecture detail$/i)).toHaveTextContent(/transforms complete statement assumptions/i);
+    expect(screen.getByRole("link", { name: /open scenario lab/i })).toHaveAttribute("href", "/scenario");
+    await user.click(screen.getByRole("button", { name: /close selected architecture detail/i }));
+    expect(screen.queryByLabelText(/^selected architecture detail$/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Technical architecture detail/i).closest("details")).not.toHaveAttribute("open");
     expect(container.querySelector('[class*="w-screen"]')).toBeNull();
+  });
+
+  it("uses the same architecture definition for a condensed landing preview", async () => {
+    const user = userEvent.setup();
+    render(<LandingEngineMapPreview />);
+
+    expect(screen.getByRole("heading", { name: /one engine\. many financial insights/i })).toBeInTheDocument();
+    expect(screen.getByText("Analytical core")).toBeInTheDocument();
+    await user.tab();
+    await user.keyboard("{Enter}");
+    expect(screen.getByText(/financial input:/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /explore the engine/i })).toHaveAttribute("href", "/engine-map");
   });
 });

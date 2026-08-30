@@ -12,7 +12,7 @@ export function ExecutiveDiagnosis({ viewModel }: ExecutiveDiagnosisProps) {
   return (
     <section
       aria-label="Executive diagnosis"
-      className="premium-panel rounded-lg p-6 md:p-8"
+      className="analytical-surface rounded-lg p-6 md:p-8"
       role="region"
     >
       <div className="flex flex-col gap-4">
@@ -36,7 +36,7 @@ export function ExecutiveDiagnosis({ viewModel }: ExecutiveDiagnosisProps) {
           <ReadoutItem label="Coverage" text={viewModel.executiveSummary.coverage} />
         </dl>
 
-        <div className="bg-background/25 p-3">
+        <div className="crystal-surface rounded-md p-3">
           <div className="flex items-start gap-3">
             <BookOpenText aria-hidden="true" className="mt-1 h-4 w-4 text-information" />
             <div>

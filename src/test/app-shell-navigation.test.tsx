@@ -35,7 +35,7 @@ describe("Phase 6 final dashboard shell navigation", () => {
 
     const header = screen.getByRole("banner");
     expect(header).toHaveAttribute("data-sticky-header", "true");
-    expect(header.className).toContain("bg-background");
+    expect(header.querySelector(".premium-nav-glass")).toBeInTheDocument();
 
     const main = screen.getByRole("main");
     expect(main.className).toContain("scroll-mt-");

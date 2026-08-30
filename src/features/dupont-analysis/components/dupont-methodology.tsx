@@ -15,7 +15,7 @@ export function DupontMethodology({ methodology }: DupontMethodologyProps) {
           Formula and methodology
         </summary>
         <div className="mt-4 grid gap-4 text-small leading-6 text-neutral-300">
-          <p className="font-mono text-neutral-50">{methodology.identity}</p>
+          <p className="font-technical text-neutral-50">{methodology.identity}</p>
           <ul className="grid gap-2">
             {methodology.factorDefinitions.map((definition) => (
               <li key={definition}>{definition}</li>

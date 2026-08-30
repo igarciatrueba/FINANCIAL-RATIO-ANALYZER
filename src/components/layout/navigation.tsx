@@ -57,9 +57,9 @@ export function AnalyticalNavigation({ currentPath }: { currentPath?: string }) 
         {analyticalItems.map((item) => {
           const Icon = item.icon;
           const current = item.href === currentPath;
-          return <li key={item.href}><Link aria-current={current ? "page" : undefined} className={cn("flex items-center gap-2 rounded-md border border-transparent px-2.5 py-1.5 text-caption font-medium text-neutral-400 transition-all hover:border-blue-400/25 hover:bg-blue-500/10 hover:text-white", current && "border-blue-400/30 bg-blue-500/12 text-white")} href={item.href}><Icon aria-hidden="true" className="h-3.5 w-3.5 text-information" /><span>{item.label}</span></Link></li>;
+          return <li key={item.href}><Link aria-current={current ? "page" : undefined} className={cn("relative flex items-center gap-2 rounded-md border border-transparent px-2.5 py-1.5 text-caption font-semibold text-neutral-400 transition-all duration-200 hover:border-blue-400/25 hover:bg-blue-500/10 hover:text-white", current && "crystal-surface border-blue-300/35 text-white shadow-[0_7px_18px_rgb(37_99_235/0.15)]")} href={item.href}><Icon aria-hidden="true" className="h-3.5 w-3.5 text-information" /><span className="relative z-10">{item.label}</span>{current ? <span aria-hidden="true" className="absolute inset-x-3 bottom-0 h-px bg-blue-200 shadow-[0_0_10px_#60a5fa]" /> : null}</Link></li>;
         })}
-        {compactActionItems.map((item) => { const Icon = item.icon; return <li className="xl:hidden" key={item.href}><Link className="flex items-center gap-2 rounded-md border border-transparent px-2.5 py-1.5 text-caption font-medium text-neutral-400" href={item.href}><Icon aria-hidden="true" className="h-3.5 w-3.5 text-information" />{item.label}</Link></li>; })}
+        {compactActionItems.map((item) => { const Icon = item.icon; return <li className="xl:hidden" key={item.href}><Link className="flex items-center gap-2 rounded-md border border-transparent px-2.5 py-1.5 text-caption font-semibold text-neutral-400" href={item.href}><Icon aria-hidden="true" className="h-3.5 w-3.5 text-information" />{item.label}</Link></li>; })}
       </ul>
     </nav>
   );
@@ -96,7 +96,7 @@ export function PrimaryNavigation({
               <Link
                 aria-current={isCurrent ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-2 rounded-md border border-transparent px-3 py-2 text-small font-medium text-neutral-300 transition-all duration-200 hover:border-blue-400/25 hover:bg-blue-400/8 hover:text-neutral-50",
+                  "flex items-center gap-2 rounded-md border border-transparent px-3 py-2 text-small font-semibold text-neutral-300 transition-all duration-200 hover:border-blue-400/25 hover:bg-blue-400/8 hover:text-neutral-50",
                   orientation === "horizontal" && "whitespace-nowrap px-2.5 py-1.5 text-caption md:px-3 md:py-1.5",
                   isCurrent && "border-blue-400/25 bg-blue-500/12 text-neutral-50"
                 )}

@@ -9,7 +9,7 @@ type KpiSummaryProps = {
 
 export function KpiSummary({ kpis }: KpiSummaryProps) {
   return (
-    <section aria-label="KPI summary" className="border-y border-border py-6" role="region">
+    <section aria-label="KPI summary" className="open-section py-6" role="region">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="premium-kicker">Key operating metrics</p>
@@ -20,12 +20,12 @@ export function KpiSummary({ kpis }: KpiSummaryProps) {
         <p className="text-caption text-neutral-400">Current period with prior-period movement</p>
       </div>
 
-      <div className="premium-metric-strip mt-6">
+      <div className="data-rail mt-6">
         <div className="grid divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0">
           {kpis.map((kpi) => (
             <article
               aria-label={kpi.accessibleStatus}
-              className={cn("min-w-0 py-5 md:px-5", kpi.emphasized && "bg-blue-500/5")}
+              className={cn("min-w-0 py-5 transition-colors duration-200 hover:bg-blue-500/6 md:px-5", kpi.emphasized && "bg-blue-500/7")}
               key={kpi.id}
             >
               <div className="flex items-center justify-between gap-2">

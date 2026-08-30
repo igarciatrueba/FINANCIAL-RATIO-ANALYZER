@@ -22,7 +22,7 @@ export function DetailedRatioTable({ ratioTable }: DetailedRatioTableProps) {
               {group.label}
             </h3>
             <div className="mt-3 min-w-0 max-w-full overflow-x-auto rounded-sm border border-border">
-              <table className="min-w-[1040px] border-collapse text-left text-caption">
+              <table className="financial-ratio-table min-w-[1040px] border-collapse text-left text-caption">
                 <thead className="bg-background/60 text-neutral-300">
                   <tr>
                     <Th>Ratio</Th>
@@ -57,7 +57,7 @@ export function DetailedRatioTable({ ratioTable }: DetailedRatioTableProps) {
                       <Td>
                         <details>
                           <summary className="cursor-pointer font-semibold text-neutral-100">Formula and interpretation</summary>
-                          <p className="mt-2 font-mono text-neutral-200">{row.formula}</p>
+                          <p className="font-technical mt-2 text-neutral-200">{row.formula}</p>
                           <p className="mt-2 text-neutral-300">{row.interpretation}</p>
                           <p className="mt-2 text-neutral-500">{row.description}</p>
                         </details>

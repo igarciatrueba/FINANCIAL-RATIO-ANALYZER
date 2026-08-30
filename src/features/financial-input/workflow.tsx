@@ -140,11 +140,15 @@ function readInitialDraft() {
 function WorkflowNavigation({
   currentStep,
   completedSteps,
+  completedFieldCount,
+  totalFieldCount,
   issues,
   onStepChange,
 }: {
   currentStep: WorkflowStepId;
   completedSteps: Set<WorkflowStepId>;
+  completedFieldCount: number;
+  totalFieldCount: number;
   issues: ValidationIssue[];
   onStepChange: (step: WorkflowStepId) => void;
 }) {
@@ -156,6 +160,7 @@ function WorkflowNavigation({
         <span className="text-caption font-semibold uppercase text-neutral-400">Step {currentIndex + 1} of {workflowSteps.length}: {sectionLabels[currentStep]}</span>
         <span aria-hidden="true" className="h-1.5 w-20 overflow-hidden rounded-full bg-surface"><span className="block h-full bg-primary" style={{ width: `${((currentIndex + 1) / workflowSteps.length) * 100}%` }} /></span>
       </div>
+      {totalFieldCount > 0 ? <p className="mb-3 text-caption text-neutral-400"><span className="font-mono font-semibold text-blue-200">{completedFieldCount} / {totalFieldCount}</span> fields completed in this section</p> : null}
       <nav aria-label="Financial input workflow">
         <ol className="input-progress-timeline hidden gap-0 md:grid md:grid-cols-6">
           {workflowSteps.map((step, index) => {
@@ -169,22 +174,12 @@ function WorkflowNavigation({
               <li className="relative min-w-0" key={step.id}>
                 <button
                   aria-current={isCurrent ? "step" : undefined}
-                  className={cn(
-                    "relative z-10 flex min-h-14 w-full items-center gap-2 border-y border-transparent px-3 py-2 text-left text-small font-semibold transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-                    isCurrent && "border-primary bg-primary/10 text-neutral-50",
-                    !isCurrent && !hasError && "text-neutral-300 hover:bg-surface-elevated",
-                    hasError && "border-danger/60 bg-danger/10 text-neutral-50"
-                  )}
+                  className={cn("input-progress-step relative z-10 flex min-h-20 w-full flex-col items-center gap-1 px-2 py-1 text-center text-small font-semibold transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary", isCurrent && "text-neutral-50", !isCurrent && !hasError && "text-neutral-300 hover:text-neutral-50", hasError && "text-neutral-50")}
                   onClick={() => onStepChange(step.id)}
                   type="button"
                 >
-                  <Icon
-                    aria-hidden="true"
-                    className={cn("h-4 w-4", hasError ? "text-danger" : isComplete ? "text-success" : "text-primary")}
-                  />
-                  <span aria-hidden="true" className="font-mono text-caption text-neutral-500">0{index + 1}</span>
-                  <span className="min-w-0">
-                    <span className="block leading-tight">{step.label}</span>
+                  <span className={cn("input-progress-node", isCurrent && "is-current", isComplete && "is-complete", hasError && "is-error")}><Icon aria-hidden="true" className={cn("h-4 w-4", hasError ? "text-danger" : isComplete ? "text-success" : "text-primary")} /></span>
+                  <span className="min-w-0"><span aria-hidden="true" className="font-mono text-caption text-neutral-500">0{index + 1}</span><span className="ml-1 leading-tight">{step.label}</span>
                     <span className="block text-caption font-medium text-neutral-400">{stateLabel}</span>
                   </span>
                 </button>
@@ -488,6 +483,8 @@ export function FinancialInputWorkflow() {
   const reviewFeedback = combineFeedback(transformResult.success ? [] : transformResult.validation.issues, relationshipFeedback);
   const years = values.periods.map((period) => period.year);
   const currentIndex = getStepIndex(currentStep);
+  const currentFieldPaths = stepFieldPaths(currentStep);
+  const completedFieldCount = currentFieldPaths.filter((path) => String(get(values, path) ?? "").trim().length > 0).length;
   const isReview = currentStep === "review";
   const canAnalyse = isReview && reviewFeedback.errors.length === 0 && transformResult.success;
 
@@ -603,8 +600,8 @@ export function FinancialInputWorkflow() {
   return (
     <div className="premium-workspace grid gap-8 premium-enter">
       <section aria-label="Demo companies" className="premium-panel rounded-lg p-5 md:p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
             <p className="premium-kicker">Starting point</p><p className="mt-2 text-h4 font-semibold text-neutral-50">Start from a fictional company or enter data manually.</p>
             <p className="mt-1 text-caption text-neutral-400">
               Local draft persistence only. Data is not synced to any cloud service.
@@ -613,7 +610,7 @@ export function FinancialInputWorkflow() {
           <div className="flex flex-col gap-3 sm:flex-row">
             {demoCompanies.map((demo) => (
               <Button
-                className="px-3 text-small sm:px-5"
+                className="w-full whitespace-normal px-3 text-center text-small sm:w-auto sm:px-5"
                 key={demo.company.id}
                 onClick={() => loadDemo(demo.company.id)}
                 type="button"
@@ -628,10 +625,12 @@ export function FinancialInputWorkflow() {
       </section>
 
       <WorkflowNavigation
+        completedFieldCount={completedFieldCount}
         completedSteps={completedSteps}
         currentStep={currentStep}
         issues={navigationIssues}
         onStepChange={goToStep}
+        totalFieldCount={currentFieldPaths.length}
       />
 
       <form className="grid gap-8" noValidate onChange={resumeAutosave}>

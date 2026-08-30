@@ -245,12 +245,12 @@ export function ScenarioLab({ baseInput, baseAnalysis, initialViewModel }: Scena
   }
 
   return (
-    <div className="premium-workspace grid min-w-0 gap-8 premium-enter">
+    <div className="premium-workspace premium-ambient grid min-w-0 gap-8 premium-enter">
       <ScenarioContextBar isBaseCase={isBaseCase} viewModel={viewModel} selectedPresetId={selectedPresetId} />
 
       {isBaseCase ? <BaseCaseState viewModel={viewModel} /> : null}
 
-      <section aria-label="Scenario setup" className="premium-panel rounded-lg p-5 md:p-7">
+      <section aria-label="Scenario setup" className="control-plane rounded-lg p-5 md:p-7">
         <div className="grid gap-5 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
           <div>
             <p className="premium-kicker">Scenario setup</p>
@@ -352,7 +352,7 @@ function ScenarioContextBar({
   const scenarioStatus = isBaseCase ? "Base Case" : selectedPresetId === "custom" ? "Custom scenario" : selectPresetLabel(selectedPresetId);
 
   return (
-    <section aria-label="Scenario context" className="premium-panel rounded-lg p-5">
+    <section aria-label="Scenario context" className="analytical-surface rounded-lg p-5">
       <div className="flex flex-col gap-4">
         <div className="grid gap-4 lg:grid-cols-[minmax(18rem,1fr)_auto] lg:items-center">
           <div className="min-w-0">
@@ -415,7 +415,7 @@ function ContextItem({ label, value }: { label: string; value: string }) {
 
 function BaseCaseState({ viewModel }: { viewModel: ScenarioComparisonViewModel }) {
   return (
-    <section aria-label="Base Case active" className="border-y border-border bg-surface-elevated px-4 py-5 md:px-5">
+    <section aria-label="Base Case active" className="data-rail px-4 py-5 md:px-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-caption uppercase text-neutral-400">Base Case active</p>

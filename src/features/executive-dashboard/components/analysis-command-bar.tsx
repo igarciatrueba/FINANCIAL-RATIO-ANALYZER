@@ -14,11 +14,11 @@ export function AnalysisCommandBar({ viewModel }: AnalysisCommandBarProps) {
   return (
     <section
       aria-label="Analysis context"
-      className="rounded-md border border-border bg-surface p-4"
+      className="analysis-command-bar rounded-md border border-border bg-surface p-4"
     >
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="grid gap-4 md:grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(0,1fr))] md:items-center">
-          <div>
+          <div className="analysis-status">
             <p className="text-caption uppercase text-neutral-400">Company / Industry</p>
             <p className="mt-1 text-body font-semibold leading-tight text-neutral-50">{viewModel.company.name}</p>
             <p className="text-small text-neutral-400">{viewModel.company.industry}</p>
@@ -28,14 +28,14 @@ export function AnalysisCommandBar({ viewModel }: AnalysisCommandBarProps) {
           <ContextItem label="Coverage" value={`${viewModel.coverage.displayValue} coverage`} />
           <div>
             <p className="text-caption uppercase text-neutral-400">Status</p>
-            <Badge className="mt-1 gap-2" variant="success">
+            <Badge className="pointer-events-none mt-1 gap-2" variant="success">
               <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" />
               {viewModel.status.label}
             </Badge>
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row xl:shrink-0">
+        <div className="analysis-action-group flex flex-col gap-3 sm:flex-row sm:flex-wrap xl:shrink-0">
           <PrintReportButton />
           <Button asChild>
             <Link aria-label="Edit financials in the financial input workflow" href={viewModel.routes.editInput}>

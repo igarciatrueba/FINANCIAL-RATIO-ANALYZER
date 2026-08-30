@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { EquiverseLogo } from "@/components/brand/equiverse-logo";
+import { AccountControl } from "@/features/accounts/components/account-control";
 import { AnalyticalNavigation } from "@/components/layout/navigation";
 import { PageIntro } from "@/components/layout/page-intro";
 import { PremiumCursorGlow } from "@/components/layout/premium-cursor-glow";
@@ -47,6 +48,7 @@ export function AppShell({ children, currentPath, title = BRAND.name, subtitle }
               <p className="truncate text-caption font-semibold uppercase tracking-[0.1em] text-neutral-300">{title}</p>
               {subtitle ? <p className="truncate text-caption text-neutral-500">{subtitle}</p> : null}
             </div>
+            <div className="ml-auto xl:hidden"><AccountControl /></div>
           </div>
           <div className="order-3 min-w-0 overflow-x-auto pb-0.5 xl:order-none">
             <AnalyticalNavigation currentPath={currentPath} />
@@ -54,6 +56,7 @@ export function AppShell({ children, currentPath, title = BRAND.name, subtitle }
           <div className="hidden justify-end gap-2 xl:flex">
             <Button asChild className="min-h-9 px-3 text-caption" variant="ghost"><Link href="/methodology">Methodology</Link></Button>
             <Button asChild className="min-h-9 px-3 text-caption" variant="secondary"><Link href="/input">Edit financials</Link></Button>
+            <AccountControl />
           </div>
         </div>
       </header>

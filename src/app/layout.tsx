@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
+import { AccountSessionProvider } from "@/features/accounts/auth-session-provider";
 import { BRAND } from "@/lib/brand";
 
 import "./globals.css";
@@ -37,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html data-scroll-behavior="smooth" lang="en">
-      <body>{children}</body>
+      <body><AccountSessionProvider>{children}</AccountSessionProvider></body>
     </html>
   );
 }

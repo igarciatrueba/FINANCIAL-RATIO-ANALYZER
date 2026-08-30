@@ -76,6 +76,17 @@ const pipeline: AnnualReportExtractionPipeline = {
         diagnostics: {},
         sourceCandidateReferences: [],
         selectionStatus: "available",
+      }, {
+        reference: "ebit:2",
+        canonicalFieldKey: "ebit",
+        periodSlotIndex: 2,
+        candidateKind: "direct",
+        normalizedValue: "240",
+        confidence: "medium",
+        sourceEvidence: { pageNumber: 5, sourceLabel: "Operating profit" },
+        diagnostics: {},
+        sourceCandidateReferences: [],
+        selectionStatus: "available",
       }],
       draftFields: [{
         canonicalFieldKey: "revenue",
@@ -84,6 +95,13 @@ const pipeline: AnnualReportExtractionPipeline = {
         provenanceType: "PDF_EXTRACTED",
         reviewState: "UNREVIEWED",
         formValue: "1000",
+      }, {
+        canonicalFieldKey: "ebit",
+        periodSlotIndex: 2,
+        candidateReference: "ebit:2",
+        provenanceType: "PDF_EXTRACTED",
+        reviewState: "NEEDS_REVIEW",
+        formValue: null,
       }],
     };
   },
@@ -97,8 +115,34 @@ describe("document extraction service", () => {
     const extracted = await service.extract(current.owner.id, current.workspace.id, current.file.id);
 
     expect(extracted?.run.status).toBe("ready_for_review");
-    expect(extracted?.candidates).toEqual([expect.objectContaining({ canonicalFieldKey: "revenue", sourceEvidence: { pageNumber: 5, sourceLabel: "Revenue" } })]);
-    expect(extracted?.draftFields).toEqual([expect.objectContaining({ formValue: "1000", provenanceType: "PDF_EXTRACTED", reviewState: "UNREVIEWED" })]);
+    expect(extracted?.candidates).toEqual(expect.arrayContaining([expect.objectContaining({ canonicalFieldKey: "revenue", sourceEvidence: { pageNumber: 5, sourceLabel: "Revenue" } })]));
+    expect(extracted?.draftFields).toEqual(expect.arrayContaining([expect.objectContaining({ formValue: "1000", provenanceType: "PDF_EXTRACTED", reviewState: "UNREVIEWED" })]));
     await expect(service.get(current.outsider.id, current.workspace.id, extracted!.run.id)).rejects.toMatchObject({ code: "FORBIDDEN" } satisfies Partial<AppError>);
+  }, 20_000);
+
+  it("requires explicit review for a medium-confidence suggestion and retains the original evidence after an override", async () => {
+    const current = await fixture();
+    const service = new DocumentExtractionService(current.repository, current.storage, pipeline);
+    const extracted = await service.extract(current.owner.id, current.workspace.id, current.file.id);
+
+    const accepted = await service.resolveDraftField(current.owner.id, current.workspace.id, extracted!.run.id, {
+      canonicalFieldKey: "ebit",
+      periodSlotIndex: 2,
+      action: "accept_candidate",
+    });
+    expect(accepted).toMatchObject({ formValue: "240", provenanceType: "PDF_EXTRACTED", reviewState: "USER_CONFIRMED" });
+
+    const overridden = await service.resolveDraftField(current.owner.id, current.workspace.id, extracted!.run.id, {
+      canonicalFieldKey: "revenue",
+      periodSlotIndex: 2,
+      action: "provide_value",
+      value: "950",
+    });
+    const refreshed = await service.get(current.owner.id, current.workspace.id, extracted!.run.id);
+    expect(overridden).toMatchObject({ formValue: "950", provenanceType: "USER_OVERRIDE", reviewState: "USER_CONFIRMED" });
+    expect(refreshed.candidates.find((candidate) => candidate.id === overridden.originalCandidateId)).toEqual(expect.objectContaining({
+      sourceEvidence: { pageNumber: 5, sourceLabel: "Revenue" },
+      normalizedValue: "1000.000000",
+    }));
   }, 20_000);
 });

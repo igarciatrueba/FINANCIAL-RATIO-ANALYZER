@@ -8,6 +8,31 @@ import {
 import type { StorageService } from "@/server/storage/types";
 import { z } from "zod";
 
+const canonicalFieldKeySchema = z.enum([
+  "revenue", "costOfGoodsSold", "ebit", "interestExpense", "netIncome",
+  "cash", "accountsReceivable", "inventory", "currentAssets", "totalAssets",
+  "currentLiabilities", "totalDebt", "equity", "operatingCashFlow", "capitalExpenditure",
+  "averageInventory", "averageReceivables", "averagePayables",
+]);
+
+const draftResolutionSchema = z.object({
+  canonicalFieldKey: canonicalFieldKeySchema,
+  periodSlotIndex: z.number().int().min(0).max(2),
+  action: z.enum(["accept_candidate", "provide_value"]),
+  value: z.string().optional(),
+}).strict().superRefine((value, context) => {
+  if (value.action === "provide_value" && (value.value === undefined || !/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value.value.trim()))) {
+    context.addIssue({ code: "custom", message: "Enter a plain finite number without a currency symbol or thousands separator." });
+  }
+  if (value.action === "accept_candidate" && value.value !== undefined) {
+    context.addIssue({ code: "custom", message: "A suggested PDF value cannot include a separate manual value." });
+  }
+});
+
+function formNumber(value: string) {
+  return value.includes(".") ? value.replace(/(?:\.0+|(\.\d*?[1-9])0+)$/, "$1") : value;
+}
+
 export class DocumentExtractionService {
   private readonly authorization: AuthorizationService;
 
@@ -99,5 +124,54 @@ export class DocumentExtractionService {
     const extraction = await this.repository.getDocumentExtractionRunForWorkspace(workspaceId, runId);
     if (!extraction) throw new AppError("NOT_FOUND", "The requested extraction is not available in this workspace.");
     return extraction;
+  }
+
+  async resolveDraftField(actorUserId: string, workspaceId: string, runId: string, input: unknown) {
+    await this.authorization.requireWorkspaceAction(actorUserId, workspaceId, "manage-dataset");
+    if (!z.string().uuid().safeParse(runId).success) throw new AppError("VALIDATION_ERROR", "A valid extraction identifier is required.");
+    const parsed = draftResolutionSchema.safeParse(input);
+    if (!parsed.success) throw new AppError("VALIDATION_ERROR", "The reviewed financial value is not valid.");
+    const extraction = await this.repository.getDocumentExtractionRunForWorkspace(workspaceId, runId);
+    if (!extraction || extraction.run.status !== "ready_for_review") {
+      throw new AppError("NOT_FOUND", "The requested extraction is not available for review.");
+    }
+    const resolution = parsed.data;
+    const field = extraction.draftFields.find((candidate) =>
+      candidate.canonicalFieldKey === resolution.canonicalFieldKey && candidate.periodSlotIndex === resolution.periodSlotIndex
+    );
+    if (!field) throw new AppError("NOT_FOUND", "The requested extracted field is not available.");
+
+    if (resolution.action === "accept_candidate") {
+      const candidateId = field.currentCandidateId ?? field.originalCandidateId;
+      const candidate = candidateId ? extraction.candidates.find((item) => item.id === candidateId) : null;
+      if (!candidate || candidate.normalizedValue === null || candidate.confidence === "low") {
+        throw new AppError("VALIDATION_ERROR", "Only an evidenced high- or medium-confidence PDF suggestion can be accepted.");
+      }
+      const updated = await this.repository.upsertDocumentExtractionDraftField({
+        runId,
+        canonicalFieldKey: resolution.canonicalFieldKey,
+        periodSlotIndex: resolution.periodSlotIndex,
+        currentCandidateId: candidate.id,
+        originalCandidateId: field.originalCandidateId ?? candidate.id,
+        provenanceType: candidate.candidateKind === "direct" ? "PDF_EXTRACTED" : "DERIVED",
+        reviewState: "USER_CONFIRMED",
+        formValue: formNumber(candidate.normalizedValue),
+      });
+      await this.repository.recordActivity({ workspaceId, userId: actorUserId, eventType: "document_extraction.field_confirmed", entityType: "document_extraction_run", entityId: runId });
+      return updated;
+    }
+
+    const originalCandidateId = field.originalCandidateId ?? field.currentCandidateId ?? undefined;
+    const updated = await this.repository.upsertDocumentExtractionDraftField({
+      runId,
+      canonicalFieldKey: resolution.canonicalFieldKey,
+      periodSlotIndex: resolution.periodSlotIndex,
+      originalCandidateId,
+      provenanceType: originalCandidateId ? "USER_OVERRIDE" : "USER_PROVIDED",
+      reviewState: "USER_CONFIRMED",
+      formValue: resolution.value!.trim(),
+    });
+    await this.repository.recordActivity({ workspaceId, userId: actorUserId, eventType: "document_extraction.field_overridden", entityType: "document_extraction_run", entityId: runId });
+    return updated;
   }
 }

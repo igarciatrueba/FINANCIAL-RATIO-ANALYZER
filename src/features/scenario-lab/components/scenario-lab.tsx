@@ -8,6 +8,9 @@ import type { FinancialAnalysisInput, FinancialAnalysisResult, ScenarioAssumptio
 import { baseScenarioAssumptions, scenarioPresetList, scenarioPropagationRules } from "@/domain/scenarios";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { createWorkspaceScenarioAction } from "@/app/workspace/actions";
+import { useAccountSession } from "@/features/accounts/auth-session-provider";
+import { PERSISTED_ANALYSIS_CONTEXT_KEY, recoverPersistedAnalysisContext, type PersistedAnalysisContext } from "@/features/accounts/persisted-analysis-context";
 import { ChartContainer, useReducedMotionPreference } from "@/features/executive-dashboard/charts/chart-container";
 import { formatFinancialValue } from "@/features/executive-dashboard/lib/format-financial-value";
 import { buildScenarioDimensionComparisonOption } from "@/features/scenario-lab/charts/scenario-chart-options";
@@ -200,9 +203,17 @@ function buildViewModelFromPipeline(
 }
 
 export function ScenarioLab({ baseInput, baseAnalysis, initialViewModel }: ScenarioLabProps) {
+  const accountSession = useAccountSession();
   const reducedMotion = useReducedMotionPreference();
   const [assumptions, setAssumptions] = useState<ScenarioAssumptions>(baseScenarioAssumptions);
   const [selectedPresetId, setSelectedPresetId] = useState<ScenarioPresetId | "custom" | null>(null);
+  const [persistedContext] = useState<PersistedAnalysisContext | null>(() => {
+    if (typeof window === "undefined") return null;
+    return recoverPersistedAnalysisContext(window.sessionStorage.getItem(PERSISTED_ANALYSIS_CONTEXT_KEY));
+  });
+  const [scenarioName, setScenarioName] = useState("");
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const state = useMemo(
     () => buildViewModelFromPipeline(baseInput, baseAnalysis, assumptions, selectedPresetId, initialViewModel),
     [assumptions, baseAnalysis, baseInput, initialViewModel, selectedPresetId]
@@ -242,6 +253,34 @@ export function ScenarioLab({ baseInput, baseAnalysis, initialViewModel }: Scena
   function resetScenario() {
     setAssumptions(baseScenarioAssumptions);
     setSelectedPresetId(null);
+  }
+
+  async function saveScenario() {
+    if (accountSession.status !== "authenticated") {
+      window.location.assign("/login?next=/scenario");
+      return;
+    }
+    if (!persistedContext) {
+      setSaveStatus("Save a signed-in analysis first so this scenario can retain its exact base-analysis lineage.");
+      return;
+    }
+    if (state.status !== "success" || isBaseCase) return;
+    setSaveStatus(null);
+    setIsSaving(true);
+    const result = await createWorkspaceScenarioAction({
+      companyId: persistedContext.companyId,
+      baseAnalysisRunId: persistedContext.runId,
+      sourceDatasetVersionId: persistedContext.datasetVersionId,
+      name: scenarioName.trim() || `${selectPresetLabel(selectedPresetId)} scenario`,
+      description: selectedPreset?.description,
+      assumptions,
+    });
+    setIsSaving(false);
+    if (!result.scenarioId) {
+      setSaveStatus(result.error ?? "This scenario could not be saved.");
+      return;
+    }
+    window.location.assign(`/workspace/scenarios/${result.scenarioId}`);
   }
 
   return (
@@ -297,10 +336,7 @@ export function ScenarioLab({ baseInput, baseAnalysis, initialViewModel }: Scena
             </div>
 
             {!isBaseCase ? (
-              <Button className="mt-4 w-full sm:w-auto" onClick={resetScenario} type="button" variant="secondary">
-                <RotateCcw aria-hidden="true" className="h-5 w-5" />
-                Reset to Base Case
-              </Button>
+              <div className="mt-4 grid gap-3"><Button className="w-full sm:w-auto" onClick={resetScenario} type="button" variant="secondary"><RotateCcw aria-hidden="true" className="h-5 w-5" />Reset to Base Case</Button><label className="grid gap-1 text-caption font-semibold text-neutral-300">Scenario name<input className="min-h-10 rounded-md border border-border bg-background px-3 text-small text-white" onChange={(event) => setScenarioName(event.target.value)} placeholder="Optional scenario name" value={scenarioName} /></label><Button disabled={isSaving || state.status !== "success"} onClick={() => void saveScenario()} type="button">{isSaving ? "Saving scenario" : accountSession.status === "authenticated" ? "Save scenario" : "Sign in to save"}</Button>{saveStatus ? <p className="text-caption text-red-200" role="alert">{saveStatus}</p> : null}</div>
             ) : null}
           </div>
 

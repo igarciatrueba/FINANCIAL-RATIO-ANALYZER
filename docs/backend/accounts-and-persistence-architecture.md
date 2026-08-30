@@ -2,7 +2,7 @@
 
 ## Purpose and boundaries
 
-This backend turns Financial Ratio Analyzer into a tenant-scoped financial workspace without changing its browser-first product flows. PostgreSQL is the persistent source of truth for authenticated workspaces; the existing local and session storage remains available only for anonymous drafts and transient handoff until a future account UI connects to these services.
+This backend turns EQUIVERSE into a tenant-scoped financial workspace without changing its browser-first product flows. PostgreSQL is the persistent source of truth for authenticated workspaces; existing local and session storage remains available for anonymous drafts and transient handoff alongside the account UI.
 
 Financial calculations remain pure in `src/domain`. The persistence layer validates and stores canonical inputs, invokes the existing domain engine, and persists validated analytical snapshots. It does not implement ratios, score thresholds, DuPont, scenario transformations, or insights.
 
@@ -14,9 +14,9 @@ Financial calculations remain pure in `src/domain`. The persistence layer valida
 | Supabase Auth server boundary | Yes | Yes | Synthetic email/password claims and account mapping |
 | Supabase PostgreSQL | Yes, via Session Pooler `DATABASE_URL` | Yes | Migrations, schema, lineage and tenant validation |
 | Supabase private Storage adapter | Yes | Yes | Private bucket, signed access and metadata linkage |
-| Frontend account API/UI | No, intentionally deferred | No | N/A |
+| EQUIVERSE account and workspace frontend | Yes | Yes | Server-action and server-component boundary covered by frontend tests |
 
-The exact review evidence, local fixes and real-provider blocker are in [integration-readiness-review.md](integration-readiness-review.md). The server-service contract for the future account UI is in [frontend-integration-contract.md](frontend-integration-contract.md).
+The exact review evidence is in [integration-readiness-review.md](integration-readiness-review.md). The server-service contract used by the account UI is in [frontend-integration-contract.md](frontend-integration-contract.md).
 
 ## Technology decision
 
@@ -76,7 +76,7 @@ Important financial entities are archived rather than deleted by normal services
 
 ## Authentication, session and authorization
 
-Supabase Auth establishes identity. Server code calls `auth.getClaims()` through `@supabase/ssr` rather than trusting a browser-provided session object, maps the external identity with `requireAuthenticatedUser()`, and updates cookies via `src/proxy.ts`. Existing routes remain available because account enforcement is a future frontend integration step.
+Supabase Auth establishes identity. Server code calls `auth.getClaims()` through `@supabase/ssr` rather than trusting a browser-provided session object, maps the external identity with `requireAuthenticatedUser()`, and updates cookies via `src/proxy.ts`. Public product routes remain available for anonymous exploration. Account routes resolve the session through the same server boundary and redirect unauthenticated requests to sign in.
 
 Every protected service follows this sequence: authenticated internal user, workspace membership, role action, then entity lookup constrained by the same workspace. This prevents IDOR access based on guessed UUIDs. UI visibility is never relied on for authorization.
 
@@ -120,7 +120,7 @@ Production storage requires a private Supabase bucket and a server-only `SUPABAS
 4. Run `npm run db:seed` to create a synthetic development identity, personal workspace, NovaTech Solutions and Atlas Manufacturing Group datasets. The seed is idempotent and never runs automatically.
 5. Run `npm run db:check` to make a safe `SELECT 1` connection check.
 6. Run `npm run db:test` for clean PGlite migrations and backend-focused tests. For an intentionally configured non-production Supabase environment, run `npm run db:live:check`; it creates and cleans up synthetic validation data. Then use `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`.
-7. Start the existing application with `npm run dev`. It remains usable without login until a separate frontend account phase is approved.
+7. Start the application with `npm run dev`. Anonymous analysis remains available without login; account routes require a configured Supabase session.
 
 The required environment variable names are listed in `.env.example`; this repository contains no database URL, provider project ID, API key, OAuth secret, or service role credential.
 
@@ -134,4 +134,4 @@ Define account deletion, workspace deletion, GDPR export/deletion, retention, or
 
 ## Local-to-account migration
 
-Current browser localStorage/sessionStorage data is deliberately preserved. A later authenticated UI should offer explicit opt-in import: validate the local canonical draft, create a user-owned workspace/company/dataset version, run a fresh persisted analysis, and only then offer to clear the local copy. Browser storage is useful for anonymous work and caching, never the canonical account database.
+Current browser localStorage/sessionStorage data is deliberately preserved. The authenticated UI offers explicit opt-in import: validate local canonical input, create a user-owned workspace/company/dataset version, run a fresh persisted analysis, and then reopen its stored result. Browser storage is useful for anonymous work and caching, never the canonical account database.

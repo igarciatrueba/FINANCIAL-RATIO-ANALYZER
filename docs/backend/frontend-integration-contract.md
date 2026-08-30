@@ -1,8 +1,8 @@
-# Backend Contract for the Future Account Frontend
+# Backend Contract for the EQUIVERSE Account Frontend
 
 ## Scope and boundary
 
-This is the server-service contract for the future authenticated frontend. No account HTTP API or account UI exists yet. A future route handler, server action or server component must resolve the authenticated account server-side and call these services; browser code must not import repositories, Drizzle, `StorageService`, or privileged Supabase clients.
+This is the server-service contract for the authenticated EQUIVERSE frontend. Account routes, server actions and workspace screens are implemented on top of this contract. Server components and server actions resolve the authenticated account server-side before calling these services; browser code must not import repositories, Drizzle, `StorageService`, or privileged Supabase clients.
 
 All identifiers are UUID strings. Every mutation accepts an authenticated internal `actorUserId`; the application derives it from Supabase through `AccountService.resolveCurrentAccount()` rather than taking it from browser input.
 
@@ -15,6 +15,12 @@ Supabase claims -> users upsert by provider identity -> active Personal workspac
 ```
 
 This is idempotent and protected by an active `(owner_user_id, name)` uniqueness constraint. The returned shape is `{ user, workspace }`. A missing session produces `UNAUTHENTICATED`; absent public Supabase configuration produces `CONFIGURATION_ERROR`. The current anonymous/local input flow remains independent until the UI explicitly offers an opt-in import.
+
+## Implemented frontend boundary
+
+Public account routes are `/login`, `/signup`, `/forgot-password`, and `/reset-password`. The browser uses only the Supabase publishable client for Auth session changes. Protected server-rendered routes are `/workspace`, `/workspace/companies`, `/workspace/history`, `/workspace/files`, `/workspace/scenarios`, and `/account`; they resolve the account via `AccountService.resolveCurrentAccount()` and are dynamic so private responses are never shared between users.
+
+The browser-visible action boundary is `src/app/workspace/actions.ts`. It creates or edits companies, performs the explicit canonical-input import, creates immutable dataset versions, executes persistent analyses, saves scenarios, and handles private file mutations. Every action resolves the actor and workspace from the server session; no browser-provided user or workspace ID is trusted.
 
 ## Common contracts
 
@@ -77,7 +83,7 @@ Files are metadata in PostgreSQL and bytes in a private bucket. The frontend mus
 
 ## Anonymous-to-account import contract
 
-When account UI is approved, local browser data must be imported only through an explicit user action:
+The implemented account UI imports local browser data only through an explicit user action:
 
 ```text
 validate local canonical input
@@ -87,7 +93,7 @@ validate local canonical input
   -> show success before offering to clear local draft/session data
 ```
 
-Do not automatically create duplicate companies or move local data without confirmation. Browser drafts and session handoff remain non-canonical until this flow completes.
+The import reuses an existing company only when its exact name already exists in the active personal workspace; otherwise it creates one. It never overwrites an existing dataset version. Browser drafts and session handoff remain non-canonical until this flow completes.
 
 ## Provider prerequisites
 

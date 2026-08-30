@@ -1,4 +1,5 @@
 import { AnalysisCommandBar } from "@/features/executive-dashboard/components/analysis-command-bar";
+import { SaveAnalysisControl } from "@/features/accounts/components/save-analysis-control";
 import { DetailedRatioTable } from "@/features/executive-dashboard/components/detailed-ratio-table";
 import { DimensionOverview } from "@/features/executive-dashboard/components/dimension-overview";
 import { DimensionRadarChart } from "@/features/executive-dashboard/components/dimension-radar-chart";
@@ -21,6 +22,7 @@ export function ExecutiveDashboard({ viewModel }: ExecutiveDashboardProps) {
   return (
     <div className="premium-workspace grid min-w-0 gap-8 premium-enter">
       <AnalysisCommandBar viewModel={viewModel} />
+      <div className="flex justify-end"><SaveAnalysisControl /></div>
 
       <div className="premium-ambient grid min-w-0 gap-6 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-5">

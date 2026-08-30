@@ -30,8 +30,15 @@ export function createPrivateStorageKey(workspaceId: string, companyId: string |
 export class FileService {
   private readonly authorization: AuthorizationService;
 
-  constructor(private readonly repository: BackendRepository, private readonly storage: StorageService) {
+  constructor(private readonly repository: BackendRepository, private readonly storage?: StorageService) {
     this.authorization = new AuthorizationService(repository);
+  }
+
+  private requireStorage() {
+    if (!this.storage) {
+      throw new AppError("CONFIGURATION_ERROR", "Private object storage is not configured.");
+    }
+    return this.storage;
   }
 
   async upload(actorUserId: string, workspaceId: string, input: unknown) {
@@ -45,13 +52,14 @@ export class FileService {
     if (upload.body.byteLength === 0 || upload.body.byteLength > maximumFileSizeBytes) throw new AppError("VALIDATION_ERROR", "The file size is outside the allowed limit.");
     const storageKey = createPrivateStorageKey(workspaceId, upload.companyId, upload.originalFilename);
     const checksum = createHash("sha256").update(upload.body).digest("hex");
-    await this.storage.upload({ key: storageKey, body: upload.body, mimeType: upload.mimeType });
+    const storage = this.requireStorage();
+    await storage.upload({ key: storageKey, body: upload.body, mimeType: upload.mimeType });
     try {
       const file = await this.repository.createFileMetadata({ workspaceId, companyId: upload.companyId, uploadedBy: actorUserId, originalFilename: upload.originalFilename, storageKey, mimeType: upload.mimeType, sizeBytes: upload.body.byteLength, category: upload.category, checksum });
       await this.repository.recordActivity({ workspaceId, userId: actorUserId, companyId: upload.companyId, eventType: "file.uploaded", entityType: "file", entityId: file.id });
       return file;
     } catch (error) {
-      await this.storage.delete(storageKey);
+      await storage.delete(storageKey);
       throw error;
     }
   }
@@ -61,7 +69,7 @@ export class FileService {
     if (!z.string().uuid().safeParse(fileId).success) throw new AppError("VALIDATION_ERROR", "A valid file identifier is required.");
     const file = await this.repository.findFileForWorkspace(workspaceId, fileId);
     if (!file) throw new AppError("NOT_FOUND", "The requested file is not available in this workspace.");
-    return this.storage.getSignedUrl(file.storageKey, 60 * 5);
+    return this.requireStorage().getSignedUrl(file.storageKey, 60 * 5);
   }
 
   async list(actorUserId: string, workspaceId: string, request: unknown, companyId?: string) {
@@ -79,7 +87,7 @@ export class FileService {
     if (!file) throw new AppError("NOT_FOUND", "The requested file is not available in this workspace.");
     const deleted = await this.repository.markFileDeleted(workspaceId, fileId);
     if (!deleted) throw new AppError("NOT_FOUND", "The requested file is not available in this workspace.");
-    await this.storage.delete(file.storageKey);
+    await this.requireStorage().delete(file.storageKey);
     await this.repository.recordActivity({ workspaceId, userId: actorUserId, companyId: file.companyId ?? undefined, eventType: "file.deleted", entityType: "file", entityId: file.id });
     return deleted;
   }

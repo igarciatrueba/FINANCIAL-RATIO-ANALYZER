@@ -8,6 +8,9 @@ import { get, useForm, useWatch, type FieldPath } from "react-hook-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { persistFinancialInputAction } from "@/app/workspace/actions";
+import { useAccountSession } from "@/features/accounts/auth-session-provider";
+import { PERSISTED_ANALYSIS_CONTEXT_KEY } from "@/features/accounts/persisted-analysis-context";
 import type { FinancialAnalysisInput, ValidationIssue } from "@/domain";
 import { demoCompanies, cloneDemoCompany, type DemoCompanyId } from "@/features/financial-input/demo-companies";
 import {
@@ -463,12 +466,15 @@ function ReviewStep({
 
 export function FinancialInputWorkflow() {
   const router = useRouter();
+  const accountSession = useAccountSession();
   const suppressNextAutosaveRef = useRef(false);
   const [autosaveReady, setAutosaveReady] = useState(false);
   const [currentStep, setCurrentStep] = useState<WorkflowStepId>("company");
   const [completedSteps, setCompletedSteps] = useState<Set<WorkflowStepId>>(new Set());
   const [hasLoadedDemo, setHasLoadedDemo] = useState(false);
   const [draftStatus, setDraftStatus] = useState("Local draft only");
+  const [analysisStatus, setAnalysisStatus] = useState<string | null>(null);
+  const [isPersistingAnalysis, setIsPersistingAnalysis] = useState(false);
 
   const form = useForm<FinancialInputFormValues>({
     defaultValues: createEmptyFinancialInputForm(),
@@ -589,6 +595,20 @@ export function FinancialInputWorkflow() {
       ACTIVE_ANALYSIS_STORAGE_KEY,
       serializeActiveAnalysisSession(buildActiveAnalysisSession(latest.data))
     );
+
+    if (accountSession.status === "authenticated") {
+      setAnalysisStatus(null);
+      setIsPersistingAnalysis(true);
+      const persisted = await persistFinancialInputAction(latest.data);
+      setIsPersistingAnalysis(false);
+      if (!persisted.runId) {
+        setAnalysisStatus(persisted.error ?? "Your analysis could not be saved to the workspace. Retry to preserve its history.");
+        return;
+      }
+      window.sessionStorage.setItem(PERSISTED_ANALYSIS_CONTEXT_KEY, JSON.stringify({ runId: persisted.runId, companyId: persisted.companyId, datasetVersionId: persisted.datasetVersionId }));
+      router.push(`/workspace/analyses/${persisted.runId}`);
+      return;
+    }
     router.push("/analysis");
   }
 
@@ -604,7 +624,7 @@ export function FinancialInputWorkflow() {
           <div className="min-w-0">
             <p className="premium-kicker">Starting point</p><p className="mt-2 text-h4 font-semibold text-neutral-50">Start from a fictional company or enter data manually.</p>
             <p className="mt-1 text-caption text-neutral-400">
-              Local draft persistence only. Data is not synced to any cloud service.
+              {accountSession.status === "authenticated" ? "Signed in: completed analysis is saved as an immutable workspace record." : "Local draft persistence only. Sign in when you want to save analysis history."}
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -665,12 +685,13 @@ export function FinancialInputWorkflow() {
                 Save and continue
               </Button>
             ) : (
-              <Button disabled={!canAnalyse} onClick={analyseCompany} type="button">
-                Analyse company
+              <Button disabled={!canAnalyse || isPersistingAnalysis} onClick={analyseCompany} type="button">
+                {isPersistingAnalysis ? "Saving analysis" : accountSession.status === "authenticated" ? "Save and analyse" : "Analyse company"}
               </Button>
             )}
           </div>
         </div>
+        {analysisStatus ? <p className="rounded-md border border-danger/40 bg-danger/10 px-4 py-3 text-small text-red-100" role="alert">{analysisStatus}</p> : null}
       </form>
     </div>
   );

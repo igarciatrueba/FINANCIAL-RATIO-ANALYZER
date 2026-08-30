@@ -29,7 +29,7 @@ No provider credential, project identifier, connection string, synthetic passwor
 | Architecture / decision records | this document, `accounts-and-persistence-architecture.md`, `frontend-integration-contract.md`, `docs/decisions/ADR-003-accounts-and-persistence-architecture.md` |
 | Environment names only | `.env.example` |
 
-There are deliberately no account HTTP routes, server actions, login pages, workspace screens, history screens or file-management screens yet. The server service boundary is the contract for that later UI phase.
+The EQUIVERSE frontend now provides account routes, server actions, login pages, workspace screens, history, company management, private files and scenario recovery. These additions use the existing server service boundary; they do not create a parallel browser database model.
 
 ## Actual data model
 
@@ -122,6 +122,6 @@ Run `npm run db:live:check` only against an intentionally configured non-product
 | PostgreSQL | **VALIDATED**: Session Pooler connection, Drizzle migrations, schema and live persistence checks |
 | Supabase Auth | **VALIDATED**: email/password claims and internal-account mapping with synthetic users |
 | Supabase Storage | **VALIDATED**: private bucket, signed access, metadata linkage and cleanup |
-| Account frontend UI | Pending by design |
+| Account frontend UI | Implemented on the server-service contract; anonymous flows remain public |
 
 The backend is ready to support the account/frontend phase. It remains a server-mediated database model until a separately approved client-context RLS design is implemented.

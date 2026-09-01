@@ -6,7 +6,7 @@ function normalizeLabel(value: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/&/g, "and")
-    .replace(/\b\d+(?:\s*,\s*\d+)*\b/g, " ")
+    .replace(/(?:\s+\d+(?:\s*,\s*\d+)*)+\s*$/, " ")
     .replace(/[^a-z0-9]+/g, " ")
     .trim()
     .replace(/\s+/g, " ");

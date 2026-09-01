@@ -9,6 +9,7 @@ import { BackendRepository } from "@/server/repositories/backend-repository";
 import { SupabaseStorageService } from "@/server/storage/supabase-storage-service";
 import { FileService } from "@/server/services/file-service";
 import { DocumentExtractionService } from "@/server/services/document-extraction-service";
+import { validatePdfUpload } from "@/server/document-extraction/validate-pdf-upload";
 import type { AnnualReportReviewDraft, ExtractionReviewCandidate, ExtractionReviewField } from "@/features/annual-report-ingestion/review-types";
 
 export type WorkspaceActionState = { status: "idle" | "success" | "error"; message?: string };
@@ -41,6 +42,7 @@ function toReviewDraft(extraction: NonNullable<Awaited<ReturnType<BackendReposit
   }
   return {
     runId: extraction.run.id,
+    sourceFileId: extraction.run.fileId,
     sourceFileName,
     periodSlots: periodSlots as AnnualReportReviewDraft["periodSlots"],
     documentSummary: extraction.run.documentSummary,
@@ -149,11 +151,14 @@ export async function uploadAnnualReportAction(formData: FormData): Promise<{ dr
     const file = formData.get("file");
     if (!(file instanceof File)) return { error: "Choose a PDF annual report before extraction." };
     const { user, workspace, repository } = await resolveAccountContext();
+    const body = new Uint8Array(await file.arrayBuffer());
+    const mimeType = file.type || "application/pdf";
+    validatePdfUpload({ mimeType, bytes: body });
     const stored = await privateFileService(repository).upload(user.id, workspace.id, {
       originalFilename: file.name,
-      mimeType: file.type || "application/pdf",
+      mimeType,
       category: "source_document",
-      body: new Uint8Array(await file.arrayBuffer()),
+      body,
     });
     const extraction = await privateDocumentExtractionService(repository).extract(user.id, workspace.id, stored.id);
     if (!extraction) throw new AppError("ANALYSIS_FAILED", "The annual report extraction did not produce a review draft.");
@@ -185,9 +190,9 @@ export async function resolveAnnualReportDraftFieldAction(runId: string, input: 
   }
 }
 
-export async function persistFinancialInputAction(input: FinancialAnalysisInput): Promise<{ runId?: string; companyId?: string; datasetVersionId?: string; error?: string }> {
+export async function persistFinancialInputAction(input: FinancialAnalysisInput, extractionRunId?: string): Promise<{ runId?: string; companyId?: string; datasetVersionId?: string; error?: string }> {
   try {
-    const { user, workspace, services } = await resolveAccountContext();
+    const { user, workspace, services, repository } = await resolveAccountContext();
     const companyPage = await services.companies.list(user.id, workspace.id, { limit: 100 });
     let company = companyPage.items.find((candidate) => candidate.name === input.company.name) ?? null;
     if (!company) {
@@ -200,9 +205,13 @@ export async function persistFinancialInputAction(input: FinancialAnalysisInput)
 
     const datasets = await services.datasets.list(user.id, workspace.id, company.id, { limit: 100 });
     const existing = datasets.items.find((candidate) => candidate.dataset.name === "Financial statements") ?? null;
+    const sourceType = extractionRunId ? "import" : "manual";
     const datasetVersion = existing
-      ? await services.datasets.createVersion(user.id, workspace.id, company.id, existing.dataset.id, input, "manual")
-      : (await services.datasets.createDataset(user.id, workspace.id, company.id, "Financial statements", input, "manual")).version;
+      ? await services.datasets.createVersion(user.id, workspace.id, company.id, existing.dataset.id, input, sourceType)
+      : (await services.datasets.createDataset(user.id, workspace.id, company.id, "Financial statements", input, sourceType)).version;
+    if (extractionRunId) {
+      await privateDocumentExtractionService(repository).confirmDataset(user.id, workspace.id, extractionRunId, datasetVersion.id);
+    }
     const completed = await services.analyses.execute(user.id, workspace.id, company.id, datasetVersion.id, crypto.randomUUID());
     refreshWorkspace(company.id);
     return { runId: completed.runId, companyId: company.id, datasetVersionId: datasetVersion.id };

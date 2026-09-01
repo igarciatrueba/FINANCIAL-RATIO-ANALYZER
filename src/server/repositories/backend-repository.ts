@@ -305,6 +305,19 @@ export class BackendRepository {
     return row ?? null;
   }
 
+  async findDatasetVersionInWorkspace(workspaceId: string, datasetVersionId: string) {
+    const [row] = await this.database.select({ version: financialDatasetVersions, dataset: financialDatasets, company: companies }).from(financialDatasetVersions)
+      .innerJoin(financialDatasets, eq(financialDatasetVersions.financialDatasetId, financialDatasets.id))
+      .innerJoin(companies, eq(financialDatasets.companyId, companies.id))
+      .where(and(
+        eq(financialDatasetVersions.id, datasetVersionId),
+        eq(companies.workspaceId, workspaceId),
+        isNull(companies.archivedAt),
+        isNull(financialDatasets.archivedAt),
+      )).limit(1);
+    return row ?? null;
+  }
+
   async listDatasetsForCompany(workspaceId: string, companyId: string, request: PageRequest) {
     const where = [
       eq(financialDatasets.companyId, companyId),
@@ -567,6 +580,20 @@ export class BackendRepository {
     }).where(and(
       eq(documentExtractionRuns.workspaceId, workspaceId),
       eq(documentExtractionRuns.id, runId),
+    )).returning();
+    return run ?? null;
+  }
+
+  async confirmDocumentExtractionRun(workspaceId: string, runId: string, datasetVersionId: string) {
+    const [run] = await this.database.update(documentExtractionRuns).set({
+      confirmedDatasetVersionId: datasetVersionId,
+      confirmedAt: new Date(),
+      updatedAt: new Date(),
+    }).where(and(
+      eq(documentExtractionRuns.workspaceId, workspaceId),
+      eq(documentExtractionRuns.id, runId),
+      eq(documentExtractionRuns.status, "ready_for_review"),
+      isNull(documentExtractionRuns.confirmedDatasetVersionId),
     )).returning();
     return run ?? null;
   }

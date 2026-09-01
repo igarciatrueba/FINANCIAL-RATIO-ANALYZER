@@ -20,6 +20,7 @@ export type ExtractionReviewField = {
 
 export type AnnualReportReviewDraft = {
   runId: string;
+  sourceFileId: string;
   sourceFileName: string;
   periodSlots: [ExtractionPeriodSlot, ExtractionPeriodSlot, ExtractionPeriodSlot];
   documentSummary: Record<string, unknown>;

@@ -36,6 +36,7 @@ describe("annual report canonical field mapping", () => {
     expect(findCanonicalFieldMapping("Cash and short-term deposits")?.key).toBe("cash");
     expect(findCanonicalFieldMapping("Net cash from operating activities")?.key).toBe("operatingCashFlow");
     expect(findCanonicalFieldMapping("Revenue 2, 30")?.key).toBe("revenue");
+    expect(findCanonicalFieldMapping("Level 2 revenue")).toBeNull();
   });
 
   it("excludes lookalike metrics that cannot be treated as canonical inputs", () => {

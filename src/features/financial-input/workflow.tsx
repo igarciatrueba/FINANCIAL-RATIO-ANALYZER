@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { persistFinancialInputAction, resolveAnnualReportDraftFieldAction } from "@/app/workspace/actions";
 import { useAccountSession } from "@/features/accounts/auth-session-provider";
 import { AnnualReportUpload } from "@/features/annual-report-ingestion/components/annual-report-upload";
+import { AnnualReportReviewSummary } from "@/features/annual-report-ingestion/components/annual-report-review-summary";
 import { applyAnnualReportReviewDraft, type ReviewFieldByFormPath } from "@/features/annual-report-ingestion/lib/apply-review-draft";
 import type { AnnualReportReviewDraft } from "@/features/annual-report-ingestion/review-types";
 import { PERSISTED_ANALYSIS_CONTEXT_KEY } from "@/features/accounts/persisted-analysis-context";
@@ -668,7 +669,7 @@ export function FinancialInputWorkflow() {
 
   async function recordManualPdfValue(path: string, value: string) {
     const field = reviewFields[path];
-    if (!annualReportDraft || !field || !value.trim() || value.trim() === field.formValue) return;
+    if (!annualReportDraft || !field || !value.trim() || value.trim() === field.formValue) return true;
     const result = await resolveAnnualReportDraftFieldAction(annualReportDraft.runId, {
       canonicalFieldKey: field.canonicalFieldKey,
       periodSlotIndex: field.periodSlotIndex,
@@ -677,16 +678,29 @@ export function FinancialInputWorkflow() {
     });
     if (!result.field) {
       setAnalysisStatus(result.error ?? "The reviewed PDF value could not be saved.");
-      return;
+      return false;
     }
     const candidateId = result.field.currentCandidateId ?? result.field.originalCandidateId;
     const candidate = candidateId ? annualReportDraft.candidates.find((item) => item.id === candidateId) ?? null : null;
     setReviewFields((previous) => ({ ...previous, [path]: { ...result.field!, candidate } }));
     setDraftStatus("Manual PDF review value saved with its original evidence");
+    return true;
+  }
+
+  async function syncAnnualReportReview() {
+    for (const [path, field] of Object.entries(reviewFields)) {
+      const value = String(get(getValues(), path) ?? "");
+      if (value.trim() && value.trim() !== field.formValue) {
+        const saved = await recordManualPdfValue(path, value);
+        if (!saved) return false;
+      }
+    }
+    return true;
   }
 
   async function analyseCompany() {
     await trigger();
+    if (annualReportDraft && !(await syncAnnualReportReview())) return;
     const latest = transformFormValuesToCanonical(getValues());
 
     if (!latest.success) {
@@ -708,7 +722,7 @@ export function FinancialInputWorkflow() {
     if (accountSession.status === "authenticated") {
       setAnalysisStatus(null);
       setIsPersistingAnalysis(true);
-      const persisted = await persistFinancialInputAction(latest.data);
+      const persisted = await persistFinancialInputAction(latest.data, annualReportDraft?.runId);
       setIsPersistingAnalysis(false);
       if (!persisted.runId) {
         setAnalysisStatus(persisted.error ?? "Your analysis could not be saved to the workspace. Retry to preserve its history.");
@@ -754,6 +768,7 @@ export function FinancialInputWorkflow() {
       </section>
 
       <AnnualReportUpload onDraftReady={applyAnnualReportDraft} session={accountSession} />
+      {annualReportDraft ? <AnnualReportReviewSummary draft={annualReportDraft} /> : null}
 
       <WorkflowNavigation
         completedFieldCount={completedFieldCount}

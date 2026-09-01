@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run --exclude 'src/test/backend-*.test.ts' && vitest run --config vitest.backend.config.ts",
+    "test:annual-reports": "node --import tsx scripts/validate-annual-report-corpus.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",

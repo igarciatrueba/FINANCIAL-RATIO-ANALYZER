@@ -174,4 +174,22 @@ export class DocumentExtractionService {
     await this.repository.recordActivity({ workspaceId, userId: actorUserId, eventType: "document_extraction.field_overridden", entityType: "document_extraction_run", entityId: runId });
     return updated;
   }
+
+  async confirmDataset(actorUserId: string, workspaceId: string, runId: string, datasetVersionId: string) {
+    await this.authorization.requireWorkspaceAction(actorUserId, workspaceId, "manage-dataset");
+    if (!z.string().uuid().safeParse(runId).success || !z.string().uuid().safeParse(datasetVersionId).success) {
+      throw new AppError("VALIDATION_ERROR", "Valid extraction and dataset identifiers are required.");
+    }
+    const extraction = await this.repository.getDocumentExtractionRunForWorkspace(workspaceId, runId);
+    if (!extraction || extraction.run.status !== "ready_for_review" || extraction.run.confirmedDatasetVersionId) {
+      throw new AppError("CONFLICT", "This annual report extraction cannot be confirmed again.");
+    }
+    if (!await this.repository.findDatasetVersionInWorkspace(workspaceId, datasetVersionId)) {
+      throw new AppError("NOT_FOUND", "The confirmed dataset is not available in this workspace.");
+    }
+    const confirmed = await this.repository.confirmDocumentExtractionRun(workspaceId, runId, datasetVersionId);
+    if (!confirmed) throw new AppError("CONFLICT", "This annual report extraction could not be confirmed safely.");
+    await this.repository.recordActivity({ workspaceId, userId: actorUserId, eventType: "document_extraction.dataset_confirmed", entityType: "document_extraction_run", entityId: runId });
+    return confirmed;
+  }
 }

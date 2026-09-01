@@ -7,6 +7,7 @@ describe("annual report review draft application", () => {
   it("applies only accepted or high-confidence values while preserving an explicitly unresolved third period", () => {
     const applied = applyAnnualReportReviewDraft(createEmptyFinancialInputForm(), {
       runId: "run-1",
+      sourceFileId: "file-1",
       sourceFileName: "annual-report.pdf",
       documentSummary: {},
       periodSlots: [

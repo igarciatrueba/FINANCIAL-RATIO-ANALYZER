@@ -10,6 +10,9 @@ import type { AnnualReportExtractionPipeline } from "@/server/document-extractio
 import { BackendRepository } from "@/server/repositories/backend-repository";
 import { DocumentExtractionService } from "@/server/services/document-extraction-service";
 import { WorkspaceService } from "@/server/services/workspace-service";
+import { CompanyService } from "@/server/services/company-service";
+import { FinancialDatasetService } from "@/server/services/financial-dataset-service";
+import { cloneDemoCompany } from "@/features/financial-input/demo-companies";
 import type { StorageService } from "@/server/storage/types";
 
 class MemoryStorage implements StorageService {
@@ -144,5 +147,28 @@ describe("document extraction service", () => {
       sourceEvidence: { pageNumber: 5, sourceLabel: "Revenue" },
       normalizedValue: "1000.000000",
     }));
+  }, 20_000);
+
+  it("links a reviewed PDF extraction to exactly one immutable imported dataset version", async () => {
+    const current = await fixture();
+    const service = new DocumentExtractionService(current.repository, current.storage, pipeline);
+    const extracted = await service.extract(current.owner.id, current.workspace.id, current.file.id);
+    const company = await new CompanyService(current.repository).create(current.owner.id, current.workspace.id, {
+      name: "Extracted company",
+      industry: "Software",
+      currency: "EUR",
+    });
+    const dataset = await new FinancialDatasetService(current.repository).createDataset(
+      current.owner.id,
+      current.workspace.id,
+      company.id,
+      "Financial statements",
+      cloneDemoCompany("novatech-solutions"),
+      "import",
+    );
+
+    const confirmed = await service.confirmDataset(current.owner.id, current.workspace.id, extracted!.run.id, dataset.version.id);
+    expect(confirmed.confirmedDatasetVersionId).toBe(dataset.version.id);
+    await expect(service.confirmDataset(current.owner.id, current.workspace.id, extracted!.run.id, dataset.version.id)).rejects.toMatchObject({ code: "CONFLICT" } satisfies Partial<AppError>);
   }, 20_000);
 });

@@ -41,6 +41,9 @@ const applicationTables = [
   "scenario_assumptions",
   "scenario_results",
   "files",
+  "document_extraction_runs",
+  "document_extraction_candidates",
+  "document_extraction_draft_fields",
   "activity_events",
 ] as const;
 
@@ -52,6 +55,11 @@ const applicationEnums = [
   "analysis_run_status",
   "analysis_result_type",
   "file_category",
+  "document_extraction_status",
+  "document_extraction_candidate_kind",
+  "document_extraction_confidence",
+  "document_extraction_provenance",
+  "document_extraction_review_state",
 ] as const;
 
 let liveCheckStage = "initializing";

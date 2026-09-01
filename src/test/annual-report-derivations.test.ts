@@ -5,13 +5,14 @@ import { deriveAverageBalance, deriveTotalDebt } from "@/features/annual-report-
 describe("annual report deterministic derivations", () => {
   it("derives total debt only from explicitly included evidenced components", () => {
     expect(deriveTotalDebt([
-      { id: "current-borrowings", value: 120, includedInTotalDebt: true },
-      { id: "non-current-borrowings", value: 380, includedInTotalDebt: true },
+      { id: "current-borrowings", value: 120, includedInTotalDebt: true, component: "current" },
+      { id: "non-current-borrowings", value: 380, includedInTotalDebt: true, component: "non_current" },
     ])).toEqual({ status: "derived", value: 500, sourceCandidateIds: ["current-borrowings", "non-current-borrowings"] });
   });
 
   it("leaves total debt unresolved when no valid component set is available", () => {
-    expect(deriveTotalDebt([{ id: "net-debt", value: 200, includedInTotalDebt: false }])).toEqual({ status: "unresolved" });
+    expect(deriveTotalDebt([{ id: "net-debt", value: 200, includedInTotalDebt: false, component: "current" }])).toEqual({ status: "unresolved" });
+    expect(deriveTotalDebt([{ id: "current-borrowings", value: 200, includedInTotalDebt: true, component: "current" }])).toEqual({ status: "unresolved" });
   });
 
   it("derives an average balance only when opening and closing evidence are both present", () => {

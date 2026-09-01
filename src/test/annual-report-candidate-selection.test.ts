@@ -31,4 +31,23 @@ describe("annual report candidate selection", () => {
 
     expect(selected).toEqual([expect.objectContaining({ canonicalFieldKey: "revenue", normalizedValue: null, confidence: "low", status: "conflict" })]);
   });
+
+  it("does not map a cash-flow working-capital movement into a balance-sheet closing balance", () => {
+    expect(selectMappedCandidates([{
+      ...evidence,
+      statementType: "cash_flow",
+      sourceLabel: "Accounts receivable",
+      rawValue: "400",
+      fiscalPeriod: { label: "2025", year: 2025 },
+    }])).toEqual([]);
+  });
+
+  it("prefers an unambiguous consolidated statement candidate over a conflicting parent-company table", () => {
+    const selected = selectMappedCandidates([
+      { ...evidence, sourceLabel: "Revenue", rawValue: "1,000", fiscalPeriod: { label: "2025", year: 2025 } },
+      { ...evidence, statementScope: "parent", sourceLabel: "Revenue", rawValue: "750", fiscalPeriod: { label: "2025", year: 2025 } },
+    ]);
+
+    expect(selected).toEqual([expect.objectContaining({ normalizedValue: 1_000_000_000, status: "available", confidence: "high" })]);
+  });
 });

@@ -50,4 +50,42 @@ describe("native annual report extraction pipeline", () => {
       sourceEvidence: expect.objectContaining({ pageNumber: 7, sourceLabel: "Revenue" }),
     })]));
   });
+
+  it("derives total debt only when both evidenced current and non-current components exist", async () => {
+    const debtProvider: DocumentTextExtractionProvider = {
+      async extract() {
+        return {
+          pageCount: 1,
+          pages: [{
+            pageNumber: 9,
+            extractionMode: "native_text",
+            tokens: [
+              { text: "Consolidated balance sheet", x: 20, y: 100, width: 200, height: 10 },
+              { text: "In millions", x: 20, y: 90, width: 70, height: 10 },
+              { text: "2025", x: 400, y: 90, width: 30, height: 10 },
+              { text: "2024", x: 500, y: 90, width: 30, height: 10 },
+              { text: "Current portion of long-term debt", x: 20, y: 80, width: 210, height: 10 },
+              { text: "120", x: 400, y: 80, width: 30, height: 10 },
+              { text: "100", x: 500, y: 80, width: 30, height: 10 },
+              { text: "Long-term debt", x: 20, y: 70, width: 100, height: 10 },
+              { text: "380", x: 400, y: 70, width: 30, height: 10 },
+              { text: "350", x: 500, y: 70, width: 30, height: 10 },
+            ],
+          }],
+        };
+      },
+    };
+
+    const output = await new NativeAnnualReportExtractionPipeline(debtProvider).extract({
+      mimeType: "application/pdf",
+      bytes: new TextEncoder().encode("%PDF-test"),
+    });
+
+    expect(output.candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ reference: "totalDebt:2", candidateKind: "aggregation", normalizedValue: "500000000", sourceCandidateReferences: ["totalDebt-current:2", "totalDebt-non_current:2"] }),
+    ]));
+    expect(output.draftFields).toEqual(expect.arrayContaining([
+      expect.objectContaining({ canonicalFieldKey: "totalDebt", periodSlotIndex: 2, formValue: "500000000", provenanceType: "DERIVED" }),
+    ]));
+  });
 });

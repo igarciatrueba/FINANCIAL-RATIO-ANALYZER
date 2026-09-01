@@ -1,4 +1,5 @@
 import { buildExtractionDraft } from "@/features/annual-report-ingestion/lib/build-extraction-draft";
+import { canonicalizeExtractedFinancialValue } from "@/features/annual-report-ingestion/lib/canonicalize-extracted-value";
 import { deriveTotalDebt } from "@/features/annual-report-ingestion/lib/derive-financial-fields";
 import { discoverFinancialStatement } from "@/features/annual-report-ingestion/lib/discover-financial-statements";
 import { resolvePeriodSlots } from "@/features/annual-report-ingestion/lib/extraction-periods";
@@ -97,9 +98,19 @@ function debtComponentKind(label: string): "current" | "non_current" | null {
     .replace(/[^a-z0-9]+/g, " ")
     .trim()
     .replace(/\s+/g, " ");
-  if (["short term debt and current maturities of long term debt", "current portion of long term debt", "short term borrowings", "current borrowings"].includes(normalized)) return "current";
+  if (["short term debt", "short term debt and current maturities of long term debt", "current portion of long term debt", "short term borrowings", "current borrowings"].includes(normalized)) return "current";
   if (["long term debt", "non current borrowings", "long term borrowings"].includes(normalized)) return "non_current";
   return null;
+}
+
+function debtComponentReference(component: "current" | "non_current", slotIndex: number, label: string) {
+  const labelKey = label
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `totalDebt-${component}:${slotIndex}:${labelKey}`;
 }
 
 export class NativeAnnualReportExtractionPipeline implements AnnualReportExtractionPipeline {
@@ -143,7 +154,7 @@ export class NativeAnnualReportExtractionPipeline implements AnnualReportExtract
         canonicalFieldKey,
         periodSlotIndex: slotIndex,
         candidateKind: "direct" as const,
-        normalizedValue: candidate.normalizedValue === null ? null : String(candidate.normalizedValue),
+        normalizedValue: candidate.normalizedValue === null ? null : String(canonicalizeExtractedFinancialValue(canonicalFieldKey, candidate.normalizedValue)),
         confidence: candidate.confidence,
         sourceEvidence: {
           pageNumber: candidate.pageNumber,
@@ -169,13 +180,13 @@ export class NativeAnnualReportExtractionPipeline implements AnnualReportExtract
       const normalized = normalizeFinancialValue(candidate.rawValue, candidate.scale);
       const periodSlotIndex = resolveSlotIndex(periodSlots, candidate.fiscalPeriod);
       if (!component || !normalized.success || periodSlotIndex === null) return [];
-      const reference = `totalDebt-${component}:${periodSlotIndex}`;
+      const reference = debtComponentReference(component, periodSlotIndex, candidate.sourceLabel);
       return [{
         reference,
         canonicalFieldKey: "totalDebt" as const,
         periodSlotIndex,
         candidateKind: "direct" as const,
-        normalizedValue: String(normalized.value),
+        normalizedValue: String(canonicalizeExtractedFinancialValue("totalDebt", normalized.value)),
         confidence: candidate.statementScope === "consolidated" || candidate.statementScope === "unknown" ? "high" as const : "medium" as const,
         sourceEvidence: {
           pageNumber: candidate.pageNumber,

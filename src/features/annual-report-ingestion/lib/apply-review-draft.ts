@@ -17,6 +17,15 @@ export function applyAnnualReportReviewDraft(current: FinancialInputFormValues, 
   const values = structuredClone(current);
   const fieldByFormPath: ReviewFieldByFormPath = {};
 
+  // A PDF draft is an authoritative review surface: unresolved canonical fields
+  // must remain empty instead of inheriting a previous local input value.
+  for (const period of values.periods) {
+    for (const mapping of canonicalFieldMappings) {
+      const section = sectionToPeriodKey[mapping.statementSource];
+      (period[section] as Record<string, string>)[mapping.key] = "";
+    }
+  }
+
   draft.periodSlots.forEach((slot) => {
     values.periods[slot.slotIndex].year = slot.fiscalPeriod?.year === undefined ? "" : String(slot.fiscalPeriod.year);
   });

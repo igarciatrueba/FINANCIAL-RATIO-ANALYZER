@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import nextConfig from "../../next.config";
 import { NativePdfTextProvider } from "@/server/document-extraction/native-pdf-text-provider";
 
 function createMinimalPdf(content: string) {
@@ -26,6 +27,10 @@ function createMinimalPdf(content: string) {
 }
 
 describe("native PDF text provider", () => {
+  it("keeps the native PDF parser external to the Next server bundle", () => {
+    expect(nextConfig.serverExternalPackages).toContain("pdfjs-dist");
+  });
+
   it("extracts positioned native text without any OCR adapter", async () => {
     const result = await new NativePdfTextProvider().extract({
       bytes: createMinimalPdf("BT /F1 12 Tf 72 720 Td (Revenue 4725) Tj ET"),

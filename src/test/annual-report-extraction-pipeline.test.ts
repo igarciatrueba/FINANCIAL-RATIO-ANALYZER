@@ -82,8 +82,90 @@ describe("native annual report extraction pipeline", () => {
     });
 
     expect(output.candidates).toEqual(expect.arrayContaining([
-      expect.objectContaining({ reference: "totalDebt:2", candidateKind: "aggregation", normalizedValue: "500000000", sourceCandidateReferences: ["totalDebt-current:2", "totalDebt-non_current:2"] }),
+      expect.objectContaining({ reference: "totalDebt:2", candidateKind: "aggregation", normalizedValue: "500000000", sourceCandidateReferences: ["totalDebt-current:2:current-portion-of-long-term-debt", "totalDebt-non_current:2:long-term-debt"] }),
     ]));
+    expect(output.draftFields).toEqual(expect.arrayContaining([
+      expect.objectContaining({ canonicalFieldKey: "totalDebt", periodSlotIndex: 2, formValue: "500000000", provenanceType: "DERIVED" }),
+    ]));
+  });
+
+  it("includes each separately disclosed current debt component in a total-debt derivation", async () => {
+    const debtProvider: DocumentTextExtractionProvider = {
+      async extract() {
+        return {
+          pageCount: 1,
+          pages: [{
+            pageNumber: 10,
+            extractionMode: "native_text",
+            tokens: [
+              { text: "Consolidated balance sheet", x: 20, y: 100, width: 200, height: 10 },
+              { text: "In millions", x: 20, y: 90, width: 70, height: 10 },
+              { text: "2025", x: 400, y: 90, width: 30, height: 10 },
+              { text: "2024", x: 500, y: 90, width: 30, height: 10 },
+              { text: "Short-term debt", x: 20, y: 80, width: 120, height: 10 },
+              { text: "80", x: 400, y: 80, width: 30, height: 10 },
+              { text: "70", x: 500, y: 80, width: 30, height: 10 },
+              { text: "Current portion of long-term debt", x: 20, y: 70, width: 210, height: 10 },
+              { text: "120", x: 400, y: 70, width: 30, height: 10 },
+              { text: "100", x: 500, y: 70, width: 30, height: 10 },
+              { text: "Long-term debt", x: 20, y: 60, width: 100, height: 10 },
+              { text: "380", x: 400, y: 60, width: 30, height: 10 },
+              { text: "350", x: 500, y: 60, width: 30, height: 10 },
+            ],
+          }],
+        };
+      },
+    };
+
+    const output = await new NativeAnnualReportExtractionPipeline(debtProvider).extract({
+      mimeType: "application/pdf",
+      bytes: new TextEncoder().encode("%PDF-test"),
+    });
+
+    expect(output.candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        reference: "totalDebt:2",
+        candidateKind: "aggregation",
+        normalizedValue: "580000000",
+        sourceCandidateReferences: expect.arrayContaining([
+          "totalDebt-current:2:short-term-debt",
+          "totalDebt-current:2:current-portion-of-long-term-debt",
+          "totalDebt-non_current:2:long-term-debt",
+        ]),
+      }),
+    ]));
+  });
+
+  it("normalizes parenthesized balance-sheet debt components to the positive canonical debt magnitude", async () => {
+    const debtProvider: DocumentTextExtractionProvider = {
+      async extract() {
+        return {
+          pageCount: 1,
+          pages: [{
+            pageNumber: 11,
+            extractionMode: "native_text",
+            tokens: [
+              { text: "Consolidated balance sheet", x: 20, y: 100, width: 200, height: 10 },
+              { text: "In millions", x: 20, y: 90, width: 70, height: 10 },
+              { text: "2025", x: 400, y: 90, width: 30, height: 10 },
+              { text: "2024", x: 500, y: 90, width: 30, height: 10 },
+              { text: "Current borrowings", x: 20, y: 80, width: 120, height: 10 },
+              { text: "(120)", x: 400, y: 80, width: 30, height: 10 },
+              { text: "(100)", x: 500, y: 80, width: 30, height: 10 },
+              { text: "Non-current borrowings", x: 20, y: 70, width: 140, height: 10 },
+              { text: "(380)", x: 400, y: 70, width: 30, height: 10 },
+              { text: "(350)", x: 500, y: 70, width: 30, height: 10 },
+            ],
+          }],
+        };
+      },
+    };
+
+    const output = await new NativeAnnualReportExtractionPipeline(debtProvider).extract({
+      mimeType: "application/pdf",
+      bytes: new TextEncoder().encode("%PDF-test"),
+    });
+
     expect(output.draftFields).toEqual(expect.arrayContaining([
       expect.objectContaining({ canonicalFieldKey: "totalDebt", periodSlotIndex: 2, formValue: "500000000", provenanceType: "DERIVED" }),
     ]));

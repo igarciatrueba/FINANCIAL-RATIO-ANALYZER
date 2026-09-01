@@ -2,17 +2,9 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import corpus from "../src/test/fixtures/annual-report-corpus.json" with { type: "json" };
+import { evaluateAnnualReportCorpusEntry } from "../src/features/annual-report-ingestion/lib/corpus-validation";
 import { NativeAnnualReportExtractionPipeline } from "../src/server/document-extraction/annual-report-extraction-pipeline";
-
-type CorpusEntry = {
-  id: string;
-  company: string;
-  filename: string;
-  sha256: string;
-  sourceUrl: string;
-  expected: Record<string, string>;
-};
+import { annualReportCorpus } from "../src/test/fixtures/annual-report-corpus";
 
 const corpusDirectory = process.env.EQUIVERSE_ANNUAL_REPORT_CORPUS_DIR;
 
@@ -23,7 +15,7 @@ if (!corpusDirectory) {
 const pipeline = new NativeAnnualReportExtractionPipeline();
 let failed = false;
 
-for (const entry of corpus as CorpusEntry[]) {
+for (const entry of annualReportCorpus) {
   const bytes = new Uint8Array(await readFile(join(corpusDirectory, entry.filename)));
   const actualHash = createHash("sha256").update(bytes).digest("hex");
   if (actualHash !== entry.sha256) {
@@ -33,27 +25,29 @@ for (const entry of corpus as CorpusEntry[]) {
   }
 
   const output = await pipeline.extract({ bytes, mimeType: "application/pdf" });
-  const autoFilled = output.draftFields.filter((field) => field.formValue !== null);
-  const actual = new Map(autoFilled.map((field) => [`${field.canonicalFieldKey}:${field.periodSlotIndex}`, field.formValue!]));
-  const incorrect = Object.entries(entry.expected).filter(([key, value]) => actual.get(key) !== value).map(([key]) => key);
-  const unsupportedAutoFilled = [...actual.keys()].filter((key) => !(key in entry.expected));
-  const correct = Object.keys(entry.expected).filter((key) => actual.get(key) === entry.expected[key]).length;
-  const needsReview = output.draftFields.filter((field) => field.reviewState === "NEEDS_REVIEW" && field.candidateReference !== null).length;
-  const missing = output.draftFields.filter((field) => field.provenanceType === "NOT_FOUND").length;
+  const result = evaluateAnnualReportCorpusEntry({
+    groundTruth: entry.groundTruth,
+    draftFields: output.draftFields,
+    candidates: output.candidates,
+  });
 
   console.table([{
     company: entry.company,
-    groundTruthFields: Object.keys(entry.expected).length,
-    autoFilled: autoFilled.length,
-    correct,
-    needsReview,
-    missing,
-    incorrect: incorrect.length,
-    unsupportedAutoFilled: unsupportedAutoFilled.length,
+    canonicalValuesPresent: result.canonicalValuesPresent,
+    autoFilled: result.autoFilled,
+    correct: result.correct,
+    needsReview: result.needsReview,
+    presentButMissed: result.presentButMissed,
+    notPresent: result.notPresent,
+    ambiguous: result.ambiguous,
+    incorrect: result.incorrect,
+    unsupported: result.unsupported,
+    precision: result.precision === null ? "unavailable" : `${(result.precision * 100).toFixed(2)}%`,
+    recall: result.recall === null ? "unavailable" : `${(result.recall * 100).toFixed(2)}%`,
   }]);
-  if (incorrect.length || unsupportedAutoFilled.length) {
+  if (result.incorrect || result.unsupported) {
     failed = true;
-    console.error(`${entry.company}: incorrect=${incorrect.join(",") || "none"}; unsupportedAutoFilled=${unsupportedAutoFilled.join(",") || "none"}`);
+    console.error(`${entry.company}: incorrect=${result.incorrect}; unsupported=${result.unsupported}`);
   }
 }
 

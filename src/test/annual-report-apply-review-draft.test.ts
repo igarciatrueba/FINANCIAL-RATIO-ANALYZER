@@ -4,6 +4,35 @@ import { applyAnnualReportReviewDraft } from "@/features/annual-report-ingestion
 import { createEmptyFinancialInputForm } from "@/features/financial-input/form-transform";
 
 describe("annual report review draft application", () => {
+  it("clears stale financial values when the PDF leaves a canonical field unresolved", () => {
+    const existing = createEmptyFinancialInputForm();
+    existing.company = { name: "Existing company", industry: "Software", currency: "USD" };
+    existing.periods[2].incomeStatement.costOfGoodsSold = "489";
+    existing.periods[2].incomeStatement.revenue = "100";
+
+    const applied = applyAnnualReportReviewDraft(existing, {
+      runId: "run-1",
+      sourceFileId: "file-1",
+      sourceFileName: "annual-report.pdf",
+      documentSummary: {},
+      periodSlots: [
+        { slotIndex: 0, fiscalPeriod: { label: "FY2022", year: 2022 }, resolution: "resolved" },
+        { slotIndex: 1, fiscalPeriod: { label: "FY2023", year: 2023 }, resolution: "resolved" },
+        { slotIndex: 2, fiscalPeriod: { label: "FY2024", year: 2024 }, resolution: "resolved" },
+      ],
+      candidates: [
+        { id: "revenue", normalizedValue: "1000", confidence: "high", candidateKind: "direct", sourceEvidence: { pageNumber: 8 } },
+      ],
+      fields: [
+        { canonicalFieldKey: "revenue", periodSlotIndex: 2, currentCandidateId: "revenue", originalCandidateId: "revenue", provenanceType: "PDF_EXTRACTED", reviewState: "UNREVIEWED", formValue: "1000" },
+      ],
+    });
+
+    expect(applied.values.company).toEqual(existing.company);
+    expect(applied.values.periods[2].incomeStatement.revenue).toBe("1000");
+    expect(applied.values.periods[2].incomeStatement.costOfGoodsSold).toBe("");
+  });
+
   it("applies only accepted or high-confidence values while preserving an explicitly unresolved third period", () => {
     const applied = applyAnnualReportReviewDraft(createEmptyFinancialInputForm(), {
       runId: "run-1",

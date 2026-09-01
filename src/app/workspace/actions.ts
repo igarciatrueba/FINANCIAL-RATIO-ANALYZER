@@ -8,6 +8,8 @@ import { resolveAccountContext } from "@/server/accounts/account-context";
 import { BackendRepository } from "@/server/repositories/backend-repository";
 import { SupabaseStorageService } from "@/server/storage/supabase-storage-service";
 import { FileService } from "@/server/services/file-service";
+import { DocumentExtractionService } from "@/server/services/document-extraction-service";
+import type { AnnualReportReviewDraft, ExtractionReviewCandidate, ExtractionReviewField } from "@/features/annual-report-ingestion/review-types";
 
 export type WorkspaceActionState = { status: "idle" | "success" | "error"; message?: string };
 
@@ -26,6 +28,39 @@ function refreshWorkspace(companyId?: string) {
 
 function privateFileService(repository: BackendRepository) {
   return new FileService(repository, new SupabaseStorageService());
+}
+
+function privateDocumentExtractionService(repository: BackendRepository) {
+  return new DocumentExtractionService(repository, new SupabaseStorageService());
+}
+
+function toReviewDraft(extraction: NonNullable<Awaited<ReturnType<BackendRepository["getDocumentExtractionRunForWorkspace"]>>>, sourceFileName: string): AnnualReportReviewDraft {
+  const periodSlots = extraction.run.documentSummary.periodSlots;
+  if (!Array.isArray(periodSlots) || periodSlots.length !== 3) {
+    throw new AppError("ANALYSIS_FAILED", "The annual report extraction did not produce a safe review draft.");
+  }
+  return {
+    runId: extraction.run.id,
+    sourceFileName,
+    periodSlots: periodSlots as AnnualReportReviewDraft["periodSlots"],
+    documentSummary: extraction.run.documentSummary,
+    candidates: extraction.candidates.map((candidate): ExtractionReviewCandidate => ({
+      id: candidate.id,
+      normalizedValue: candidate.normalizedValue,
+      confidence: candidate.confidence,
+      candidateKind: candidate.candidateKind,
+      sourceEvidence: candidate.sourceEvidence,
+    })),
+    fields: extraction.draftFields.map((field): ExtractionReviewField => ({
+      canonicalFieldKey: field.canonicalFieldKey as ExtractionReviewField["canonicalFieldKey"],
+      periodSlotIndex: field.periodSlotIndex as 0 | 1 | 2,
+      currentCandidateId: field.currentCandidateId,
+      originalCandidateId: field.originalCandidateId,
+      provenanceType: field.provenanceType,
+      reviewState: field.reviewState,
+      formValue: field.formValue,
+    })),
+  };
 }
 
 export async function createCompanyAction(_previous: WorkspaceActionState, formData: FormData): Promise<WorkspaceActionState> {
@@ -104,6 +139,47 @@ export async function getPrivateFileUrlAction(fileId: string): Promise<{ url?: s
   try {
     const { user, workspace, repository } = await resolveAccountContext();
     return { url: await privateFileService(repository).getSignedUrl(user.id, workspace.id, fileId) };
+  } catch (error) {
+    return { error: actionFailure(error).message };
+  }
+}
+
+export async function uploadAnnualReportAction(formData: FormData): Promise<{ draft?: AnnualReportReviewDraft; error?: string }> {
+  try {
+    const file = formData.get("file");
+    if (!(file instanceof File)) return { error: "Choose a PDF annual report before extraction." };
+    const { user, workspace, repository } = await resolveAccountContext();
+    const stored = await privateFileService(repository).upload(user.id, workspace.id, {
+      originalFilename: file.name,
+      mimeType: file.type || "application/pdf",
+      category: "source_document",
+      body: new Uint8Array(await file.arrayBuffer()),
+    });
+    const extraction = await privateDocumentExtractionService(repository).extract(user.id, workspace.id, stored.id);
+    if (!extraction) throw new AppError("ANALYSIS_FAILED", "The annual report extraction did not produce a review draft.");
+    refreshWorkspace();
+    return { draft: toReviewDraft(extraction, stored.originalFilename) };
+  } catch (error) {
+    return { error: actionFailure(error).message };
+  }
+}
+
+export async function resolveAnnualReportDraftFieldAction(runId: string, input: unknown): Promise<{ field?: ExtractionReviewField; error?: string }> {
+  try {
+    const { user, workspace, repository } = await resolveAccountContext();
+    const field = await privateDocumentExtractionService(repository).resolveDraftField(user.id, workspace.id, runId, input);
+    refreshWorkspace();
+    return {
+      field: {
+        canonicalFieldKey: field.canonicalFieldKey as ExtractionReviewField["canonicalFieldKey"],
+        periodSlotIndex: field.periodSlotIndex as 0 | 1 | 2,
+        currentCandidateId: field.currentCandidateId,
+        originalCandidateId: field.originalCandidateId,
+        provenanceType: field.provenanceType,
+        reviewState: field.reviewState,
+        formValue: field.formValue,
+      },
+    };
   } catch (error) {
     return { error: actionFailure(error).message };
   }

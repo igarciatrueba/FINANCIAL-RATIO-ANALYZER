@@ -41,6 +41,14 @@ describe("Phase 4 financial input workflow", () => {
     expect(workflowNav.querySelector(".input-progress-timeline")).toBeInTheDocument();
   });
 
+  it("keeps annual-report extraction available but requires authentication before any private PDF upload", () => {
+    render(<FinancialInputWorkflow />);
+
+    expect(screen.getByRole("heading", { name: /extract a private pdf into this input/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /sign in to analyze an annual report/i })).toHaveAttribute("href", "/login?next=/input");
+    expect(screen.queryByLabelText(/select annual-report pdf/i)).not.toBeInTheDocument();
+  });
+
   it("keeps visible labels and renders three annual values for every financial concept", async () => {
     const user = userEvent.setup();
     render(<FinancialInputWorkflow />);

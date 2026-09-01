@@ -2,14 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, Circle, Info, RotateCcw, Save, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Circle, FileCheck2, Info, RotateCcw, Save, Upload } from "lucide-react";
 import { get, useForm, useWatch, type FieldPath } from "react-hook-form";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { persistFinancialInputAction } from "@/app/workspace/actions";
+import { persistFinancialInputAction, resolveAnnualReportDraftFieldAction } from "@/app/workspace/actions";
 import { useAccountSession } from "@/features/accounts/auth-session-provider";
+import { AnnualReportUpload } from "@/features/annual-report-ingestion/components/annual-report-upload";
+import { applyAnnualReportReviewDraft, type ReviewFieldByFormPath } from "@/features/annual-report-ingestion/lib/apply-review-draft";
+import type { AnnualReportReviewDraft } from "@/features/annual-report-ingestion/review-types";
 import { PERSISTED_ANALYSIS_CONTEXT_KEY } from "@/features/accounts/persisted-analysis-context";
 import type { FinancialAnalysisInput, ValidationIssue } from "@/domain";
 import { demoCompanies, cloneDemoCompany, type DemoCompanyId } from "@/features/financial-input/demo-companies";
@@ -198,9 +201,11 @@ function WorkflowNavigation({
 function CompanyStep({
   register,
   errors,
+  periodSlots,
 }: {
   register: ReturnType<typeof useForm<FinancialInputFormValues>>["register"];
   errors: unknown;
+  periodSlots?: AnnualReportReviewDraft["periodSlots"];
 }) {
   return (
     <Card>
@@ -268,6 +273,11 @@ function CompanyStep({
                     inputMode="numeric"
                     type="number"
                   />
+                  {periodSlots ? (
+                    <p className="text-caption text-neutral-500">
+                      {periodSlots[periodIndex]?.fiscalPeriod ? `Extracted from PDF: ${periodSlots[periodIndex]?.fiscalPeriod?.label}` : "Requires manual input: no fiscal period was inferred."}
+                    </p>
+                  ) : null}
                 </FieldShell>
               );
             })}
@@ -275,6 +285,41 @@ function CompanyStep({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function sourceDescription(field: NonNullable<ReviewFieldByFormPath[string]>) {
+  const evidence = field.candidate?.sourceEvidence ?? null;
+  const pageNumber = evidence && typeof evidence.pageNumber === "number" ? evidence.pageNumber : null;
+  const label = evidence && typeof evidence.sourceLabel === "string" ? evidence.sourceLabel : null;
+  const evidenceText = [label, pageNumber ? `page ${pageNumber}` : null].filter(Boolean).join(" · ");
+  if (field.provenanceType === "USER_OVERRIDE") return evidenceText ? `User override. Original PDF evidence retained: ${evidenceText}.` : "User override. Original PDF evidence retained.";
+  if (field.provenanceType === "USER_PROVIDED") return "User provided.";
+  if (field.provenanceType === "DERIVED") return "Derived from documented PDF inputs.";
+  if (field.provenanceType === "CONFLICT") return "Conflicting PDF evidence. Requires manual input.";
+  if (field.provenanceType === "NOT_FOUND") return "Requires manual input.";
+  return evidenceText ? `Extracted from PDF: ${evidenceText}.` : "Extracted from PDF.";
+}
+
+function ExtractionFieldNotice({
+  field,
+  onAccept,
+}: {
+  field?: ReviewFieldByFormPath[string];
+  onAccept?: () => void;
+}) {
+  if (!field) return null;
+  const requiresAcceptance = field.reviewState === "NEEDS_REVIEW" && field.candidate?.confidence === "medium" && field.formValue === null;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-neutral-400">
+      <FileCheck2 aria-hidden="true" className="h-3.5 w-3.5 text-blue-200" />
+      <span>{sourceDescription(field)}</span>
+      {requiresAcceptance ? (
+        <button className="font-semibold text-blue-100 underline decoration-blue-300/40 underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" onClick={onAccept} type="button">
+          Use suggested PDF value
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -312,11 +357,17 @@ function FinancialSectionStep({
   register,
   step,
   years,
+  reviewFields,
+  onAcceptCandidate,
+  onManualValue,
 }: {
   errors: unknown;
   register: ReturnType<typeof useForm<FinancialInputFormValues>>["register"];
   step: FinancialSectionId;
   years: string[];
+  reviewFields?: ReviewFieldByFormPath;
+  onAcceptCandidate?: (path: string) => void;
+  onManualValue?: (path: string, value: string) => void;
 }) {
   return (
     <Card>
@@ -347,6 +398,7 @@ function FinancialSectionStep({
                   const path = fieldPath(step, periodIndex, field.key);
                   const id = `${step}-${field.key}-${periodIndex}`;
                   const error = fieldError(errors, path);
+                  const reviewField = reviewFields?.[path];
 
                   return (
                     <FieldShell
@@ -359,6 +411,7 @@ function FinancialSectionStep({
                       <input
                         {...register(path, {
                           validate: (value) => validatePlainNumberField(String(value)),
+                          onBlur: (event) => onManualValue?.(path, String(event.target.value)),
                         })}
                         aria-describedby={`${id}-error`}
                         aria-invalid={Boolean(error)}
@@ -367,6 +420,7 @@ function FinancialSectionStep({
                         inputMode="decimal"
                         type="number"
                       />
+                      <ExtractionFieldNotice field={reviewField} onAccept={reviewField ? () => onAcceptCandidate?.(path) : undefined} />
                     </FieldShell>
                   );
                 })}
@@ -475,12 +529,14 @@ export function FinancialInputWorkflow() {
   const [draftStatus, setDraftStatus] = useState("Local draft only");
   const [analysisStatus, setAnalysisStatus] = useState<string | null>(null);
   const [isPersistingAnalysis, setIsPersistingAnalysis] = useState(false);
+  const [annualReportDraft, setAnnualReportDraft] = useState<AnnualReportReviewDraft | null>(null);
+  const [reviewFields, setReviewFields] = useState<ReviewFieldByFormPath>({});
 
   const form = useForm<FinancialInputFormValues>({
     defaultValues: createEmptyFinancialInputForm(),
     mode: "onBlur",
   });
-  const { control, formState, getValues, register, reset, trigger } = form;
+  const { control, formState, getValues, register, reset, setValue, trigger } = form;
   const watchedValues = useWatch({ control });
   const values = getValues();
   const transformResult = transformFormValuesToCanonical(values);
@@ -563,6 +619,8 @@ export function FinancialInputWorkflow() {
     setHasLoadedDemo(true);
     setCompletedSteps(new Set(["company"]));
     setCurrentStep("company");
+    setAnnualReportDraft(null);
+    setReviewFields({});
     setDraftStatus("Demo loaded into editable local draft");
   }
 
@@ -572,8 +630,59 @@ export function FinancialInputWorkflow() {
     setHasLoadedDemo(false);
     setCompletedSteps(new Set());
     setCurrentStep("company");
+    setAnnualReportDraft(null);
+    setReviewFields({});
     window.localStorage.removeItem(INPUT_DRAFT_STORAGE_KEY);
     setDraftStatus("Local draft cleared");
+  }
+
+  function applyAnnualReportDraft(draft: AnnualReportReviewDraft) {
+    resumeAutosave();
+    const applied = applyAnnualReportReviewDraft(getValues(), draft);
+    reset(applied.values);
+    setAnnualReportDraft(draft);
+    setReviewFields(applied.fieldByFormPath);
+    setHasLoadedDemo(false);
+    setCompletedSteps(new Set());
+    setCurrentStep("company");
+    setDraftStatus("PDF extraction draft loaded for review");
+  }
+
+  async function acceptPdfSuggestion(path: string) {
+    const field = reviewFields[path];
+    if (!annualReportDraft || !field) return;
+    const result = await resolveAnnualReportDraftFieldAction(annualReportDraft.runId, {
+      canonicalFieldKey: field.canonicalFieldKey,
+      periodSlotIndex: field.periodSlotIndex,
+      action: "accept_candidate",
+    });
+    if (!result.field) {
+      setAnalysisStatus(result.error ?? "The PDF suggestion could not be accepted.");
+      return;
+    }
+    const candidate = result.field.currentCandidateId ? annualReportDraft.candidates.find((item) => item.id === result.field?.currentCandidateId) ?? null : null;
+    setValue(path as FieldPath<FinancialInputFormValues>, result.field.formValue ?? "", { shouldDirty: true, shouldValidate: true });
+    setReviewFields((previous) => ({ ...previous, [path]: { ...result.field!, candidate } }));
+    setDraftStatus("PDF suggestion accepted and saved to the private review draft");
+  }
+
+  async function recordManualPdfValue(path: string, value: string) {
+    const field = reviewFields[path];
+    if (!annualReportDraft || !field || !value.trim() || value.trim() === field.formValue) return;
+    const result = await resolveAnnualReportDraftFieldAction(annualReportDraft.runId, {
+      canonicalFieldKey: field.canonicalFieldKey,
+      periodSlotIndex: field.periodSlotIndex,
+      action: "provide_value",
+      value: value.trim(),
+    });
+    if (!result.field) {
+      setAnalysisStatus(result.error ?? "The reviewed PDF value could not be saved.");
+      return;
+    }
+    const candidateId = result.field.currentCandidateId ?? result.field.originalCandidateId;
+    const candidate = candidateId ? annualReportDraft.candidates.find((item) => item.id === candidateId) ?? null : null;
+    setReviewFields((previous) => ({ ...previous, [path]: { ...result.field!, candidate } }));
+    setDraftStatus("Manual PDF review value saved with its original evidence");
   }
 
   async function analyseCompany() {
@@ -644,6 +753,8 @@ export function FinancialInputWorkflow() {
         </div>
       </section>
 
+      <AnnualReportUpload onDraftReady={applyAnnualReportDraft} session={accountSession} />
+
       <WorkflowNavigation
         completedFieldCount={completedFieldCount}
         completedSteps={completedSteps}
@@ -654,13 +765,16 @@ export function FinancialInputWorkflow() {
       />
 
       <form className="grid gap-8" noValidate onChange={resumeAutosave}>
-        {currentStep === "company" ? <CompanyStep errors={formState.errors} register={register} /> : null}
+        {currentStep === "company" ? <CompanyStep errors={formState.errors} periodSlots={annualReportDraft?.periodSlots} register={register} /> : null}
         {currentStep !== "company" && currentStep !== "review" ? (
           <FinancialSectionStep
             errors={formState.errors}
             register={register}
             step={currentStep}
             years={years}
+            reviewFields={reviewFields}
+            onAcceptCandidate={(path) => void acceptPdfSuggestion(path)}
+            onManualValue={(path, value) => void recordManualPdfValue(path, value)}
           />
         ) : null}
         {currentStep === "review" ? <ReviewStep feedback={reviewFeedback} onIssueAction={setCurrentStep} /> : null}

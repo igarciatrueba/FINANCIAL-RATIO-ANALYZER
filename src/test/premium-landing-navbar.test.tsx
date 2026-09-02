@@ -43,4 +43,10 @@ describe("Premium landing navbar", () => {
     expect(screen.getByText(/every module remains connected to the same canonical financial engine/i)).toHaveClass("landing-description");
   });
 
+  it("does not render the removed deterministic-financial-intelligence tagline", () => {
+    render(<PremiumLanding viewModel={viewModel} />);
+
+    expect(screen.queryByText(/deterministic financial intelligence/i)).not.toBeInTheDocument();
+  });
+
 });

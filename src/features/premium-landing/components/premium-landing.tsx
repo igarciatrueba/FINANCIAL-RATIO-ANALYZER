@@ -89,8 +89,7 @@ export function PremiumLanding({ viewModel }: { viewModel: PremiumLandingViewMod
 
       <section className="relative z-10 mx-auto grid max-w-[1340px] gap-12 px-5 pb-20 pt-20 sm:px-8 lg:grid-cols-12 lg:items-center lg:pb-28 lg:pt-28">
         <div className="premium-enter lg:col-span-6">
-          <p className="premium-kicker flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-blue-400 shadow-[0_0_12px_#60a5fa]" /> Deterministic financial intelligence</p>
-          <h1 className="mt-5 max-w-3xl break-words text-[clamp(2.15rem,6.2vw,5.7rem)] font-semibold leading-[0.98] tracking-tight text-white">Financial analysis <br className="sm:hidden" />should <span className="text-blue-300">explain <br className="sm:hidden" />what matters.</span></h1>
+          <h1 className="max-w-3xl break-words text-[clamp(2.15rem,6.2vw,5.7rem)] font-semibold leading-[0.98] tracking-tight text-white">Financial analysis <br className="sm:hidden" />should <span className="text-blue-300">explain <br className="sm:hidden" />what matters.</span></h1>
           <p className="landing-supporting-copy mt-5 text-[clamp(1.2rem,2vw,1.65rem)] leading-snug text-neutral-50">Not just calculate what happened.</p>
           <p className="landing-supporting-copy mt-7 max-w-xl text-body leading-7 text-neutral-50">Transform financial statements into validated ratios, a transparent Financial Health Score, deterministic insights, DuPont drivers and statement-based scenarios.</p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row"><Button asChild className="px-6"><Link href="/input">Explore platform <ArrowRight aria-hidden="true" className="h-4 w-4" /></Link></Button><Button asChild variant="secondary" className="px-6"><Link href="/methodology">View methodology <BookOpen aria-hidden="true" className="h-4 w-4" /></Link></Button></div>

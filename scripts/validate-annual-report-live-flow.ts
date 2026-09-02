@@ -16,6 +16,7 @@ import { DocumentExtractionService } from "../src/server/services/document-extra
 import { FileService } from "../src/server/services/file-service";
 import { FinancialDatasetService } from "../src/server/services/financial-dataset-service";
 import { SupabaseStorageService } from "../src/server/storage/supabase-storage-service";
+import { canonicalInputToStatementRows } from "../src/server/datasets/canonical-statement-mapper";
 
 const requiredEnvironment = [
   "DATABASE_URL",
@@ -43,6 +44,15 @@ function requireEnvironment() {
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
+}
+
+function canonicalReviewValues(input: ReturnType<typeof cloneDemoCompany>) {
+  const values = new Map<string, string>();
+  for (const statement of canonicalInputToStatementRows(input, "annual-report-e2e", "import")) {
+    const periodSlotIndex = input.periods.findIndex((period) => period.year === statement.periodYear);
+    for (const value of statement.values) values.set(`${value.metricKey}:${periodSlotIndex}`, value.value);
+  }
+  return values;
 }
 
 async function main() {
@@ -92,11 +102,17 @@ async function main() {
     const revenueCandidate = revenue?.currentCandidateId ? microsoftExtraction.candidates.find((candidate) => candidate.id === revenue.currentCandidateId) : null;
     assert(revenueCandidate?.sourceEvidence.sourceLabel === "Total revenue" && revenueCandidate.sourceEvidence.pageNumber === 48, "The source evidence for extracted Microsoft revenue is incomplete.");
 
+    const canonicalInput = cloneDemoCompany("novatech-solutions");
+    canonicalInput.company = { ...canonicalInput.company, id: `annual-report-e2e-${runId}`, name: company.name, industry: company.industry, currency: "USD" };
+    canonicalInput.periods[2].incomeStatement.revenue = 245122000001;
+    canonicalInput.periods[2].incomeStatement.interestExpense = 1000000000;
+    const reviewValues = canonicalReviewValues(canonicalInput);
+
     const manualField = await documents.resolveDraftField(account.user.id, workspaceId, microsoftExtraction.run.id, {
       canonicalFieldKey: "interestExpense",
       periodSlotIndex: 2,
       action: "provide_value",
-      value: "1000000000",
+      value: reviewValues.get("interestExpense:2"),
     });
     assert(manualField.provenanceType === "USER_PROVIDED" && manualField.reviewState === "USER_CONFIRMED", "A missing annual-report value was not retained as user-provided input.");
 
@@ -108,14 +124,23 @@ async function main() {
     });
     assert(overriddenField.provenanceType === "USER_OVERRIDE" && overriddenField.originalCandidateId === revenue?.originalCandidateId, "A user override did not preserve the original PDF evidence.");
 
+    for (const field of microsoftExtraction.draftFields) {
+      if ((field.canonicalFieldKey === "interestExpense" || field.canonicalFieldKey === "revenue") && field.periodSlotIndex === 2) continue;
+      const value = reviewValues.get(`${field.canonicalFieldKey}:${field.periodSlotIndex}`);
+      assert(value !== undefined, `The canonical E2E dataset does not provide ${field.canonicalFieldKey}:${field.periodSlotIndex}.`);
+      await documents.resolveDraftField(account.user.id, workspaceId, microsoftExtraction.run.id, {
+        canonicalFieldKey: field.canonicalFieldKey,
+        periodSlotIndex: field.periodSlotIndex,
+        action: "provide_value",
+        value,
+      });
+    }
+
     const signedUrl = await files.getSignedUrl(account.user.id, workspaceId, microsoftFile.id);
     assert((await fetch(signedUrl)).ok, "The uploaded annual report could not be inspected through a private signed URL.");
     const rawPublicResponse = await fetch(`${environment.supabaseUrl}/storage/v1/object/public/${environment.bucket}/${microsoftFile.storageKey}`);
     assert(!rawPublicResponse.ok, "The uploaded annual report was publicly reachable.");
 
-    const canonicalInput = cloneDemoCompany("novatech-solutions");
-    canonicalInput.company = { ...canonicalInput.company, id: `annual-report-e2e-${runId}`, name: company.name, industry: company.industry, currency: "USD" };
-    canonicalInput.periods[2].incomeStatement.revenue = 245122000001;
     const dataset = await datasets.createDataset(account.user.id, workspaceId, company.id, "Financial statements", canonicalInput, "import");
     const confirmedRun = await documents.confirmDataset(account.user.id, workspaceId, microsoftExtraction.run.id, dataset.version.id);
     assert(confirmedRun.confirmedDatasetVersionId === dataset.version.id, "The reviewed extraction did not retain immutable dataset-version lineage.");
@@ -139,11 +164,8 @@ async function main() {
     console.info("Live annual-report E2E validation passed: private upload, extraction, evidence inspection, user-provided value, user override, immutable dataset confirmation, analysis persistence and two-year manual slot.");
   } finally {
     for (const storageKey of storageKeys) {
-      try {
-        await storage.delete(storageKey);
-      } catch {
-        // Cleanup deliberately avoids leaking provider details.
-      }
+      await storage.delete(storageKey);
+      assert(!(await storage.exists(storageKey)), "A temporary annual-report object remained in private storage after cleanup.");
     }
     if (workspaceId) {
       await pool.query("delete from document_extraction_runs where workspace_id = $1", [workspaceId]);
@@ -159,6 +181,13 @@ async function main() {
     if (authUserId) {
       await pool.query("delete from users where auth_provider = 'supabase' and auth_provider_user_id = $1", [authUserId]);
       await admin.auth.admin.deleteUser(authUserId);
+    }
+    if (workspaceId || authUserId) {
+      const remaining = await pool.query<{ workspaceCount: string; userCount: string }>(
+        "select (select count(*) from workspaces where id = $1)::text as \"workspaceCount\", (select count(*) from users where auth_provider = 'supabase' and auth_provider_user_id = $2)::text as \"userCount\"",
+        [workspaceId, authUserId],
+      );
+      assert(remaining.rows[0]?.workspaceCount === "0" && remaining.rows[0]?.userCount === "0", "Temporary annual-report QA records remained after cleanup.");
     }
     await pool.end();
     await closeDatabaseConnection();

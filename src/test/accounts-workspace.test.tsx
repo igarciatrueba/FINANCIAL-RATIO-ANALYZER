@@ -19,7 +19,9 @@ vi.mock("next/navigation", () => ({
 describe("Equiverse accounts and workspace boundaries", () => {
   it("maps provider errors to safe account-facing messages", () => {
     expect(authErrorMessage(new Error("Invalid login credentials"))).toBe("Incorrect email or password.");
-    expect(authErrorMessage(new Error("User already registered"))).toBe("This email is already registered. Sign in instead.");
+    expect(authErrorMessage(new Error("User already registered"))).toBe("If an account can use this email, sign in or check your inbox.");
+    expect(authErrorMessage(new Error("over_email_send_rate_limit"))).toBe("Too many email requests. Please wait a few minutes before trying again.");
+    expect(authErrorMessage(new Error("Auth session missing after a recovery link expired"))).toBe("Your password reset link is invalid or has expired. Request a new one.");
     expect(authErrorMessage(new Error("internal provider failure"))).toBe("We could not complete that account request. Please try again.");
   });
 

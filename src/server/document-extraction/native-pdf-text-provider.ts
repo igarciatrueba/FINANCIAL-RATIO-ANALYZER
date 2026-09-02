@@ -30,18 +30,20 @@ export class NativePdfTextProvider implements DocumentTextExtractionProvider {
       throw new AppError("VALIDATION_ERROR", "The PDF file size is outside the allowed limit.");
     }
 
+    let loadingTask: { destroy: () => Promise<void> | void } | undefined;
+
     try {
       const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-      const loadingTask = pdfjs.getDocument({
+      const createdLoadingTask = pdfjs.getDocument({
         data: input.bytes,
         disableFontFace: true,
         useSystemFonts: true,
         stopAtErrors: true,
       });
-      const document = await loadingTask.promise;
+      loadingTask = createdLoadingTask;
+      const document = await createdLoadingTask.promise;
 
       if (document.numPages > limits.maximumPages) {
-        await loadingTask.destroy();
         throw new AppError("VALIDATION_ERROR", "The PDF contains too many pages to process safely.");
       }
 
@@ -65,11 +67,16 @@ export class NativePdfTextProvider implements DocumentTextExtractionProvider {
         });
       }
 
-      await loadingTask.destroy();
       return { pageCount: pages.length, pages };
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError("VALIDATION_ERROR", "The PDF could not be read safely.");
+    } finally {
+      try {
+        await loadingTask?.destroy();
+      } catch {
+        // Parser cleanup must never replace the safe extraction result or error.
+      }
     }
   }
 }

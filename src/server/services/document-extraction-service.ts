@@ -1,6 +1,8 @@
 import { AuthorizationService } from "@/server/services/authorization-service";
 import { BackendRepository } from "@/server/repositories/backend-repository";
 import { AppError } from "@/server/errors";
+import { parseFinancialAnalysisInput, type FinancialAnalysisInput } from "@/domain";
+import { canonicalFinancialFieldKeys, type CanonicalFieldKey } from "@/features/annual-report-ingestion/types";
 import {
   NativeAnnualReportExtractionPipeline,
   type AnnualReportExtractionPipeline,
@@ -31,6 +33,45 @@ const draftResolutionSchema = z.object({
 
 function formNumber(value: string) {
   return value.includes(".") ? value.replace(/(?:\.0+|(\.\d*?[1-9])0+)$/, "$1") : value;
+}
+
+function canonicalFieldValue(input: FinancialAnalysisInput, field: CanonicalFieldKey, periodSlotIndex: 0 | 1 | 2) {
+  const period = input.periods[periodSlotIndex];
+  switch (field) {
+    case "revenue": return period.incomeStatement.revenue;
+    case "costOfGoodsSold": return period.incomeStatement.costOfGoodsSold;
+    case "ebit": return period.incomeStatement.ebit;
+    case "interestExpense": return period.incomeStatement.interestExpense;
+    case "netIncome": return period.incomeStatement.netIncome;
+    case "cash": return period.balanceSheet.cash;
+    case "accountsReceivable": return period.balanceSheet.accountsReceivable;
+    case "inventory": return period.balanceSheet.inventory;
+    case "currentAssets": return period.balanceSheet.currentAssets;
+    case "totalAssets": return period.balanceSheet.totalAssets;
+    case "currentLiabilities": return period.balanceSheet.currentLiabilities;
+    case "totalDebt": return period.balanceSheet.totalDebt;
+    case "equity": return period.balanceSheet.equity;
+    case "operatingCashFlow": return period.cashFlow.operatingCashFlow;
+    case "capitalExpenditure": return period.cashFlow.capitalExpenditure;
+    case "averageInventory": return period.workingCapital.averageInventory;
+    case "averageReceivables": return period.workingCapital.averageReceivables;
+    case "averagePayables": return period.workingCapital.averagePayables;
+  }
+}
+
+function requireCompleteDraftForDataset(
+  fields: readonly { canonicalFieldKey: string; periodSlotIndex: number; reviewState: string; formValue: string | null }[],
+  input: FinancialAnalysisInput,
+) {
+  for (const canonicalFieldKey of canonicalFinancialFieldKeys) {
+    for (const periodSlotIndex of [0, 1, 2] as const) {
+      const field = fields.find((candidate) => candidate.canonicalFieldKey === canonicalFieldKey && candidate.periodSlotIndex === periodSlotIndex);
+      const formValue = field?.formValue?.trim();
+      if (!field || field.reviewState === "NEEDS_REVIEW" || !formValue || Number(formValue) !== canonicalFieldValue(input, canonicalFieldKey, periodSlotIndex)) {
+        throw new AppError("VALIDATION_ERROR", "Complete the extraction review before confirming this financial dataset.");
+      }
+    }
+  }
 }
 
 export class DocumentExtractionService {
@@ -106,6 +147,14 @@ export class DocumentExtractionService {
     } catch (error) {
       const safeError = error instanceof AppError ? error : new AppError("ANALYSIS_FAILED", "The annual report could not be extracted safely.");
       await this.repository.failDocumentExtractionRun(workspaceId, run.id, safeError.code, safeError.safeMessage);
+      // A rejected source cannot be used as evidence. Remove its private object and
+      // revoke application access even when object-storage cleanup is unavailable.
+      await this.repository.markFileDeleted(workspaceId, file.id);
+      try {
+        await this.storage.delete(file.storageKey);
+      } catch {
+        // The soft deletion above prevents further access while storage retries are handled operationally.
+      }
       await this.repository.recordActivity({
         workspaceId,
         userId: actorUserId,
@@ -184,9 +233,13 @@ export class DocumentExtractionService {
     if (!extraction || extraction.run.status !== "ready_for_review" || extraction.run.confirmedDatasetVersionId) {
       throw new AppError("CONFLICT", "This annual report extraction cannot be confirmed again.");
     }
-    if (!await this.repository.findDatasetVersionInWorkspace(workspaceId, datasetVersionId)) {
+    const dataset = await this.repository.findDatasetVersionInWorkspace(workspaceId, datasetVersionId);
+    if (!dataset) {
       throw new AppError("NOT_FOUND", "The confirmed dataset is not available in this workspace.");
     }
+    const canonical = parseFinancialAnalysisInput(dataset.version.canonicalInput);
+    if (!canonical.success) throw new AppError("VALIDATION_ERROR", "The confirmed dataset failed canonical validation.");
+    requireCompleteDraftForDataset(extraction.draftFields, canonical.data);
     const confirmed = await this.repository.confirmDocumentExtractionRun(workspaceId, runId, datasetVersionId);
     if (!confirmed) throw new AppError("CONFLICT", "This annual report extraction could not be confirmed safely.");
     await this.repository.recordActivity({ workspaceId, userId: actorUserId, eventType: "document_extraction.dataset_confirmed", entityType: "document_extraction_run", entityId: runId });

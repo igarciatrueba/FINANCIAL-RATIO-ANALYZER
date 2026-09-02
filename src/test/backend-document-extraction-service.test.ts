@@ -13,6 +13,8 @@ import { WorkspaceService } from "@/server/services/workspace-service";
 import { CompanyService } from "@/server/services/company-service";
 import { FinancialDatasetService } from "@/server/services/financial-dataset-service";
 import { cloneDemoCompany } from "@/features/financial-input/demo-companies";
+import { canonicalFinancialFieldKeys } from "@/features/annual-report-ingestion/types";
+import { canonicalInputToStatementRows } from "@/server/datasets/canonical-statement-mapper";
 import type { StorageService } from "@/server/storage/types";
 
 class MemoryStorage implements StorageService {
@@ -110,6 +112,35 @@ const pipeline: AnnualReportExtractionPipeline = {
   },
 };
 
+function reviewedPipelineForInput(input: ReturnType<typeof cloneDemoCompany>): AnnualReportExtractionPipeline {
+  const fieldValues = new Map(
+    canonicalInputToStatementRows(input, "test-version", "import").flatMap((statement) => {
+      const slotIndex = input.periods.findIndex((period) => period.year === statement.periodYear);
+      return statement.values.map((value) => [`${value.metricKey}:${slotIndex}`, value.value]);
+    }),
+  );
+
+  return {
+    async extract() {
+      const base = await pipeline.extract({ bytes: new Uint8Array(), mimeType: "application/pdf" });
+      return {
+        ...base,
+        draftFields: canonicalFinancialFieldKeys.flatMap((canonicalFieldKey) => [0, 1, 2].map((periodSlotIndex) => {
+          const existing = base.draftFields.find((field) => field.canonicalFieldKey === canonicalFieldKey && field.periodSlotIndex === periodSlotIndex);
+          return {
+            canonicalFieldKey,
+            periodSlotIndex: periodSlotIndex as 0 | 1 | 2,
+            candidateReference: existing?.candidateReference ?? null,
+            provenanceType: existing?.candidateReference ? "PDF_EXTRACTED" as const : "USER_PROVIDED" as const,
+            reviewState: "USER_CONFIRMED" as const,
+            formValue: fieldValues.get(`${canonicalFieldKey}:${periodSlotIndex}`) ?? null,
+          };
+        })),
+      };
+    },
+  };
+}
+
 describe("document extraction service", () => {
   it("persists only an authorized workspace's extraction draft with its PDF evidence", async () => {
     const current = await fixture();
@@ -121,6 +152,22 @@ describe("document extraction service", () => {
     expect(extracted?.candidates).toEqual(expect.arrayContaining([expect.objectContaining({ canonicalFieldKey: "revenue", sourceEvidence: { pageNumber: 5, sourceLabel: "Revenue" } })]));
     expect(extracted?.draftFields).toEqual(expect.arrayContaining([expect.objectContaining({ formValue: "1000", provenanceType: "PDF_EXTRACTED", reviewState: "UNREVIEWED" })]));
     await expect(service.get(current.outsider.id, current.workspace.id, extracted!.run.id)).rejects.toMatchObject({ code: "FORBIDDEN" } satisfies Partial<AppError>);
+  }, 20_000);
+
+  it("quarantines a malformed PDF source after a failed extraction", async () => {
+    const current = await fixture();
+    const failingPipeline: AnnualReportExtractionPipeline = {
+      async extract() {
+        throw new AppError("VALIDATION_ERROR", "The PDF could not be read safely.");
+      },
+    };
+    const service = new DocumentExtractionService(current.repository, current.storage, failingPipeline);
+
+    await expect(service.extract(current.owner.id, current.workspace.id, current.file.id))
+      .rejects.toMatchObject({ code: "VALIDATION_ERROR" } satisfies Partial<AppError>);
+
+    expect(current.storage.objects.has(current.file.storageKey)).toBe(false);
+    expect(await current.repository.findFileForWorkspace(current.workspace.id, current.file.id)).toBeNull();
   }, 20_000);
 
   it("requires explicit review for a medium-confidence suggestion and retains the original evidence after an override", async () => {
@@ -149,12 +196,12 @@ describe("document extraction service", () => {
     }));
   }, 20_000);
 
-  it("links a reviewed PDF extraction to exactly one immutable imported dataset version", async () => {
+  it("refuses to confirm an incomplete extraction draft through a direct service call", async () => {
     const current = await fixture();
     const service = new DocumentExtractionService(current.repository, current.storage, pipeline);
     const extracted = await service.extract(current.owner.id, current.workspace.id, current.file.id);
     const company = await new CompanyService(current.repository).create(current.owner.id, current.workspace.id, {
-      name: "Extracted company",
+      name: "Incomplete extraction company",
       industry: "Software",
       currency: "EUR",
     });
@@ -167,8 +214,101 @@ describe("document extraction service", () => {
       "import",
     );
 
+    await expect(service.confirmDataset(current.owner.id, current.workspace.id, extracted!.run.id, dataset.version.id))
+      .rejects.toMatchObject({ code: "VALIDATION_ERROR" } satisfies Partial<AppError>);
+  }, 20_000);
+
+  it("refuses to attach a reviewed extraction to different canonical values", async () => {
+    const current = await fixture();
+    const input = cloneDemoCompany("novatech-solutions");
+    const service = new DocumentExtractionService(current.repository, current.storage, reviewedPipelineForInput(input));
+    const extracted = await service.extract(current.owner.id, current.workspace.id, current.file.id);
+    const company = await new CompanyService(current.repository).create(current.owner.id, current.workspace.id, {
+      name: "Mismatched extraction company",
+      industry: "Software",
+      currency: "EUR",
+    });
+    const forgedInput = structuredClone(input);
+    forgedInput.periods[2].incomeStatement.revenue += 1;
+    const dataset = await new FinancialDatasetService(current.repository).createDataset(
+      current.owner.id,
+      current.workspace.id,
+      company.id,
+      "Financial statements",
+      forgedInput,
+      "import",
+    );
+
+    await expect(service.confirmDataset(current.owner.id, current.workspace.id, extracted!.run.id, dataset.version.id))
+      .rejects.toMatchObject({ code: "VALIDATION_ERROR" } satisfies Partial<AppError>);
+  }, 20_000);
+
+  it("rejects client-supplied provenance metadata while resolving a review field", async () => {
+    const current = await fixture();
+    const service = new DocumentExtractionService(current.repository, current.storage, pipeline);
+    const extracted = await service.extract(current.owner.id, current.workspace.id, current.file.id);
+
+    await expect(service.resolveDraftField(current.owner.id, current.workspace.id, extracted!.run.id, {
+      canonicalFieldKey: "revenue",
+      periodSlotIndex: 2,
+      action: "provide_value",
+      value: "999",
+      provenanceType: "PDF_EXTRACTED",
+    })).rejects.toMatchObject({ code: "VALIDATION_ERROR" } satisfies Partial<AppError>);
+  }, 20_000);
+
+  it("links a reviewed PDF extraction to exactly one immutable imported dataset version", async () => {
+    const current = await fixture();
+    const input = cloneDemoCompany("novatech-solutions");
+    const service = new DocumentExtractionService(current.repository, current.storage, reviewedPipelineForInput(input));
+    const extracted = await service.extract(current.owner.id, current.workspace.id, current.file.id);
+    const company = await new CompanyService(current.repository).create(current.owner.id, current.workspace.id, {
+      name: "Extracted company",
+      industry: "Software",
+      currency: "EUR",
+    });
+    const dataset = await new FinancialDatasetService(current.repository).createDataset(
+      current.owner.id,
+      current.workspace.id,
+      company.id,
+      "Financial statements",
+      input,
+      "import",
+    );
+
     const confirmed = await service.confirmDataset(current.owner.id, current.workspace.id, extracted!.run.id, dataset.version.id);
     expect(confirmed.confirmedDatasetVersionId).toBe(dataset.version.id);
     await expect(service.confirmDataset(current.owner.id, current.workspace.id, extracted!.run.id, dataset.version.id)).rejects.toMatchObject({ code: "CONFLICT" } satisfies Partial<AppError>);
+  }, 20_000);
+
+  it("allows exactly one concurrent confirmation for an extraction run", async () => {
+    const current = await fixture();
+    const input = cloneDemoCompany("novatech-solutions");
+    const service = new DocumentExtractionService(current.repository, current.storage, reviewedPipelineForInput(input));
+    const extracted = await service.extract(current.owner.id, current.workspace.id, current.file.id);
+    const company = await new CompanyService(current.repository).create(current.owner.id, current.workspace.id, {
+      name: "Concurrent extraction company",
+      industry: "Software",
+      currency: "EUR",
+    });
+    const dataset = await new FinancialDatasetService(current.repository).createDataset(
+      current.owner.id,
+      current.workspace.id,
+      company.id,
+      "Financial statements",
+      input,
+      "import",
+    );
+
+    const confirmations = await Promise.allSettled([
+      service.confirmDataset(current.owner.id, current.workspace.id, extracted!.run.id, dataset.version.id),
+      service.confirmDataset(current.owner.id, current.workspace.id, extracted!.run.id, dataset.version.id),
+    ]);
+
+    expect(confirmations.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(confirmations.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect(confirmations.find((result) => result.status === "rejected")).toMatchObject({
+      reason: expect.objectContaining({ code: "CONFLICT" }),
+    });
   }, 20_000);
 });

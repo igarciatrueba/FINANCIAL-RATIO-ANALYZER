@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FileText, LoaderCircle, ShieldCheck, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 
-import { uploadAnnualReportAction } from "@/app/workspace/actions";
+import { abortDirectUploadAction, completeAnnualReportUploadAction, prepareAnnualReportUploadAction } from "@/app/workspace/actions";
 import { Button } from "@/components/ui/button";
 import type { AnnualReportReviewDraft } from "@/features/annual-report-ingestion/review-types";
 import type { AccountSessionState } from "@/features/accounts/auth-session-provider";
@@ -22,9 +22,29 @@ export function AnnualReportUpload({ session, onDraftReady }: { session: Account
     }
     setPending(true);
     setMessage(null);
-    const data = new FormData();
-    data.set("file", file);
-    const result = await uploadAnnualReportAction(data);
+    const prepared = await prepareAnnualReportUploadAction({
+      originalFilename: file.name,
+      mimeType: file.type || "application/pdf",
+      sizeBytes: file.size,
+    });
+    if (!prepared.uploadUrl || !prepared.ticket) {
+      setPending(false);
+      setMessage(prepared.error ?? "The annual report could not be prepared for private upload.");
+      return;
+    }
+    let result: Awaited<ReturnType<typeof completeAnnualReportUploadAction>>;
+    try {
+      const response = await fetch(prepared.uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "content-type": file.type || "application/pdf", "x-upsert": "false" },
+      });
+      if (!response.ok) throw new Error("Private upload failed.");
+      result = await completeAnnualReportUploadAction(prepared.ticket);
+    } catch {
+      await abortDirectUploadAction(prepared.ticket);
+      result = { error: "The annual report could not be uploaded safely. Please try again." };
+    }
     setPending(false);
     if (result.draft) {
       onDraftReady(result.draft);

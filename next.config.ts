@@ -39,7 +39,11 @@ const privateWorkspaceHeaders = [{ key: "Cache-Control", value: "private, no-sto
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  serverExternalPackages: ["pdfjs-dist"],
+  serverExternalPackages: ["pdfjs-dist", "@napi-rs/canvas"],
+  // PDF.js resolves its legacy worker dynamically, so tracing cannot infer it.
+  outputFileTracingIncludes: {
+    "/*": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
+  },
   // Next 16.3 expects this resolved default in its development render options.
   experimental: { instantInsights: { validationLevel: "warning" } },
   async headers() {

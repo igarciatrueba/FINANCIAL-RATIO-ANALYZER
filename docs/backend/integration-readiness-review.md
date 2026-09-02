@@ -6,7 +6,7 @@
 
 ## Verdict
 
-The backend is **validated against the configured real Supabase environment and ready for the future account frontend boundary**. Drizzle migrations were applied through the configured Session Pooler; the application schema was inspected; and isolated synthetic Auth, database and Storage workflows passed and were cleaned up.
+The backend is **validated against the configured real Supabase environment and ready for the future account frontend boundary**. Drizzle migrations were applied through the configured Session Pooler; the application schema was inspected; and isolated synthetic Auth, database and Storage workflows passed and were cleaned up. The Vercel runtime uses the Supabase Transaction Pooler to avoid exhausting the session-mode client limit under serverless concurrency.
 
 No provider credential, project identifier, connection string, synthetic password or test fixture was written to the repository or retained after validation.
 
@@ -92,15 +92,15 @@ No financial formula, score, DuPont calculation or insight is persisted as a rep
 
 ## Storage review
 
-`StorageService` supports upload, private signed retrieval, deletion and existence checks. `FileService` accepts only PDF, CSV and XLSX up to 20 MiB, rejects path separators, uses generated workspace/company-scoped keys, treats the original filename as metadata, checks workspace access before signed URLs, and compensates an upload when metadata persistence fails. File deletion soft-deletes metadata before removing the private object, so a storage-deletion failure cannot leave a downloadable metadata record; production operations should monitor and clean any unreachable orphan object.
+`StorageService` supports upload, private signed upload/retrieval, deletion and existence checks. `FileService` accepts only PDF, CSV and XLSX up to 20 MiB, rejects path separators, uses generated workspace/company-scoped keys, treats the original filename as metadata, checks workspace access before signed URLs, and compensates an upload when metadata persistence fails. Browser uploads larger than the Vercel Function body limit use a short-lived, HMAC-signed server authorization: the browser receives only a provider upload URL and opaque ticket, while the server re-downloads the object, verifies its received byte size, computes its checksum and creates metadata. `UPLOAD_TICKET_SECRET` is required in production and must be distinct from provider keys. File deletion soft-deletes metadata before removing the private object, so a storage-deletion failure cannot leave a downloadable metadata record; production operations should monitor and clean any unreachable orphan object.
 
 The configured private Supabase bucket was validated with generated tenant-scoped object keys, upload, signed retrieval, public-read denial, deletion and database metadata linkage. Foreign-workspace access was denied by the server service. The service role remains server-only.
 
 ## Health and environment review
 
-`GET /api/health` is intentionally database-only. Without `DATABASE_URL`, it returns `503 {"status":"not-configured"}`. With a configured database it returns `200 {"status":"ready"}` after `SELECT 1`; failures return `503 {"status":"unavailable"}`. It does not claim Auth or Storage health, so provider configuration cannot be inferred from this endpoint.
+`GET /api/health` is intentionally database-only. Without `DATABASE_URL`, it returns `503 {"status":"not-configured"}`. With a configured database it returns `200 {"status":"ready"}` after `SELECT 1`; failures return `503 {"status":"unavailable"}`. The serverless deployment must use the Supabase Transaction Pooler rather than a Session Pooler URL. It does not claim Auth or Storage health, so provider configuration cannot be inferred from this endpoint.
 
-Required variable names are `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`, and optional `ANALYSIS_ENGINE_VERSION`. They are documented without values in `.env.example`. `SUPABASE_SERVICE_ROLE_KEY` is read solely by the server storage adapter; public variables contain only the Supabase URL and publishable key.
+Required variable names are `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`, `UPLOAD_TICKET_SECRET`, and optional `ANALYSIS_ENGINE_VERSION`. They are documented without values in `.env.example`. `SUPABASE_SERVICE_ROLE_KEY` is read solely by the server storage adapter; `UPLOAD_TICKET_SECRET` signs short-lived direct-upload authorizations; public variables contain only the Supabase URL and publishable key.
 
 ## Live integration evidence
 

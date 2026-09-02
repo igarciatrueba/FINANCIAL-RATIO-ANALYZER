@@ -31,6 +31,10 @@ describe("native PDF text provider", () => {
     expect(nextConfig.serverExternalPackages).toContain("pdfjs-dist");
   });
 
+  it("ships PDF.js's dynamically loaded worker with serverless extraction functions", () => {
+    expect(nextConfig.outputFileTracingIncludes?.["/*"]).toContain("./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs");
+  });
+
   it("extracts positioned native text without any OCR adapter", async () => {
     const result = await new NativePdfTextProvider().extract({
       bytes: createMinimalPdf("BT /F1 12 Tf 72 720 Td (Revenue 4725) Tj ET"),

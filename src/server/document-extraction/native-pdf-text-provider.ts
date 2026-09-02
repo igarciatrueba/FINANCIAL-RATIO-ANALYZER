@@ -1,5 +1,6 @@
 import { AppError } from "@/server/errors";
 import { PDF_RESOURCE_LIMITS } from "@/server/document-extraction/validate-pdf-upload";
+import { ensurePdfJsNodePrimitives } from "@/server/document-extraction/pdfjs-node-primitives";
 import type { DocumentTextExtractionProvider, ParsedPdfToken, PdfResourceLimits } from "@/server/document-extraction/types";
 
 type PdfTextItem = {
@@ -33,6 +34,7 @@ export class NativePdfTextProvider implements DocumentTextExtractionProvider {
     let loadingTask: { destroy: () => Promise<void> | void } | undefined;
 
     try {
+      ensurePdfJsNodePrimitives();
       const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
       const createdLoadingTask = pdfjs.getDocument({
         data: input.bytes,

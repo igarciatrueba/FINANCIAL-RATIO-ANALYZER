@@ -1,6 +1,6 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AppDatabase } from "@/server/db/client";
 import { applySqlMigrations } from "@/server/db/migrations";
@@ -10,6 +10,7 @@ import { BackendRepository } from "@/server/repositories/backend-repository";
 import { ActivityService } from "@/server/services/activity-service";
 import { CompanyService } from "@/server/services/company-service";
 import { FileService } from "@/server/services/file-service";
+import { readDirectUploadTicket } from "@/server/storage/direct-upload-ticket";
 import { WorkspaceService } from "@/server/services/workspace-service";
 import type { StorageService } from "@/server/storage/types";
 
@@ -18,6 +19,10 @@ class MemoryStorage implements StorageService {
 
   async upload(input: { key: string; body: Uint8Array }) {
     this.objects.set(input.key, input.body);
+  }
+
+  async createSignedUploadUrl(key: string) {
+    return `memory://private/${key}`;
   }
 
   async download(key: string) {
@@ -66,6 +71,49 @@ async function createFixture() {
 }
 
 describe("private file persistence", () => {
+  it("finalizes a server-authorized direct upload only after the server verifies the received byte size", async () => {
+    vi.stubEnv("UPLOAD_TICKET_SECRET", "test-secret-with-adequate-length");
+    const fixture = await createFixture();
+    const service = new FileService(fixture.repository, fixture.storage);
+    const body = new Uint8Array([1, 2, 3]);
+
+    const prepared = await service.prepareDirectUpload(fixture.owner.id, fixture.workspace.id, {
+      companyId: fixture.company.id,
+      originalFilename: "financial-source.pdf",
+      mimeType: "application/pdf",
+      category: "source_document",
+      sizeBytes: body.byteLength,
+    });
+    const ticket = readDirectUploadTicket(prepared.ticket);
+    fixture.storage.objects.set(ticket.storageKey, body);
+
+    const stored = await service.completeDirectUpload(fixture.owner.id, fixture.workspace.id, prepared.ticket);
+
+    expect(prepared.uploadUrl).toContain("memory://");
+    expect(stored.sizeBytes).toBe(body.byteLength);
+    expect(stored.checksum).toHaveLength(64);
+  }, 20_000);
+
+  it("deletes a direct-upload object when its received size differs from the signed authorization", async () => {
+    vi.stubEnv("UPLOAD_TICKET_SECRET", "test-secret-with-adequate-length");
+    const fixture = await createFixture();
+    const service = new FileService(fixture.repository, fixture.storage);
+    const prepared = await service.prepareDirectUpload(fixture.owner.id, fixture.workspace.id, {
+      originalFilename: "financial-source.pdf",
+      mimeType: "application/pdf",
+      category: "source_document",
+      sizeBytes: 3,
+    });
+    const ticket = readDirectUploadTicket(prepared.ticket);
+    fixture.storage.objects.set(ticket.storageKey, new Uint8Array([1, 2]));
+
+    await expect(service.completeDirectUpload(fixture.owner.id, fixture.workspace.id, prepared.ticket)).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      safeMessage: "The uploaded file size could not be verified.",
+    });
+    expect(await fixture.storage.exists(ticket.storageKey)).toBe(false);
+  }, 20_000);
+
   it("uses scoped generated keys and denies a foreign workspace file lookup", async () => {
     const fixture = await createFixture();
     const service = new FileService(fixture.repository, fixture.storage);

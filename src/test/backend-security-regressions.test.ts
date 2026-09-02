@@ -23,6 +23,7 @@ class MemoryStorage implements StorageService {
   readonly objects = new Map<string, Uint8Array>();
 
   async upload(input: { key: string; body: Uint8Array }) { this.objects.set(input.key, input.body); }
+  async createSignedUploadUrl(key: string) { return `memory://private/${key}`; }
   async download(key: string) {
     const value = this.objects.get(key);
     if (!value) throw new AppError("STORAGE_ERROR", "Missing test object.");

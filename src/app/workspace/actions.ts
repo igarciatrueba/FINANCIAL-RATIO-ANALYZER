@@ -126,6 +126,26 @@ export async function uploadWorkspaceFileAction(_previous: WorkspaceActionState,
   }
 }
 
+export async function prepareWorkspaceFileUploadAction(input: unknown): Promise<DirectUploadPreparation> {
+  try {
+    const { user, workspace, repository } = await resolveAccountContext();
+    return await privateFileService(repository).prepareDirectUpload(user.id, workspace.id, input);
+  } catch (error) {
+    return { error: actionFailure(error).message };
+  }
+}
+
+export async function completeWorkspaceFileUploadAction(ticket: unknown): Promise<WorkspaceActionState> {
+  try {
+    const { user, workspace, repository } = await resolveAccountContext();
+    await privateFileService(repository).completeDirectUpload(user.id, workspace.id, ticket);
+    refreshWorkspace();
+    return { status: "success", message: "File stored privately in your workspace." };
+  } catch (error) {
+    return actionFailure(error);
+  }
+}
+
 export async function deleteWorkspaceFileAction(fileId: string): Promise<WorkspaceActionState> {
   try {
     const { user, workspace, repository } = await resolveAccountContext();
@@ -166,6 +186,43 @@ export async function uploadAnnualReportAction(formData: FormData): Promise<{ dr
     return { draft: toReviewDraft(extraction, stored.originalFilename) };
   } catch (error) {
     return { error: actionFailure(error).message };
+  }
+}
+
+type DirectUploadPreparation = { uploadUrl?: string; ticket?: string; error?: string };
+
+export async function prepareAnnualReportUploadAction(input: unknown): Promise<DirectUploadPreparation> {
+  try {
+    const { user, workspace, repository } = await resolveAccountContext();
+    return await privateFileService(repository).prepareDirectUpload(user.id, workspace.id, {
+      ...(typeof input === "object" && input !== null ? input : {}),
+      category: "source_document",
+    });
+  } catch (error) {
+    return { error: actionFailure(error).message };
+  }
+}
+
+export async function completeAnnualReportUploadAction(ticket: unknown): Promise<{ draft?: AnnualReportReviewDraft; error?: string }> {
+  try {
+    const { user, workspace, repository } = await resolveAccountContext();
+    const stored = await privateFileService(repository).completeDirectUpload(user.id, workspace.id, ticket);
+    if (stored.mimeType !== "application/pdf") throw new AppError("VALIDATION_ERROR", "Upload a PDF annual report.");
+    const extraction = await privateDocumentExtractionService(repository).extract(user.id, workspace.id, stored.id);
+    if (!extraction) throw new AppError("ANALYSIS_FAILED", "The annual report extraction did not produce a review draft.");
+    refreshWorkspace();
+    return { draft: toReviewDraft(extraction, stored.originalFilename) };
+  } catch (error) {
+    return { error: actionFailure(error).message };
+  }
+}
+
+export async function abortDirectUploadAction(ticket: unknown): Promise<void> {
+  try {
+    const { user, workspace, repository } = await resolveAccountContext();
+    await privateFileService(repository).abortDirectUpload(user.id, workspace.id, ticket);
+  } catch {
+    // Browser cancellation must not replace the original upload error with cleanup detail.
   }
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 import { Archive, Download, LoaderCircle, Plus, Trash2, Upload } from "lucide-react";
 
@@ -9,8 +10,10 @@ import {
   createCompanyAction,
   deleteWorkspaceFileAction,
   getPrivateFileUrlAction,
+  prepareWorkspaceFileUploadAction,
+  completeWorkspaceFileUploadAction,
+  abortDirectUploadAction,
   updateCompanyAction,
-  uploadWorkspaceFileAction,
   type WorkspaceActionState,
 } from "@/app/workspace/actions";
 import { Button } from "@/components/ui/button";
@@ -38,8 +41,56 @@ export function ArchiveCompanyButton({ companyId }: { companyId: string }) {
 }
 
 export function FileUploadForm({ companies }: { companies: Array<{ id: string; name: string }> }) {
-  const [state, action, pending] = useActionState(uploadWorkspaceFileAction, initialState);
-  return <form action={action} className="control-plane grid gap-3 rounded-lg p-4 sm:grid-cols-[minmax(0,1fr)_10rem_10rem_auto] sm:items-end"><label className="grid gap-1 text-caption font-semibold text-neutral-300">Private file<input accept=".pdf,.csv,.xlsx" className="min-h-10 text-caption text-neutral-300" name="file" required type="file" /></label><label className="grid gap-1 text-caption font-semibold text-neutral-300">Company<select className="min-h-10 rounded-md border border-border bg-background px-3 text-small text-white" name="companyId"><option value="">Workspace file</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label><label className="grid gap-1 text-caption font-semibold text-neutral-300">Category<select className="min-h-10 rounded-md border border-border bg-background px-3 text-small text-white" name="category"><option value="source_document">Source document</option><option value="financial_input">Financial input</option><option value="import">Import</option><option value="report">Report</option></select></label><Button disabled={pending} type="submit">{pending ? <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Upload aria-hidden="true" className="h-4 w-4" />}Upload</Button><p className="sm:col-span-full text-caption text-neutral-400">Private PDF, CSV or XLSX only. Maximum 20 MiB.</p><div className="sm:col-span-full"><ActionMessage state={state} /></div></form>;
+  const router = useRouter();
+  const [state, setState] = useState<WorkspaceActionState>(initialState);
+  const [pending, setPending] = useState(false);
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const fileInput = form.elements.namedItem("file");
+    const companyInput = form.elements.namedItem("companyId");
+    const categoryInput = form.elements.namedItem("category");
+    const file = fileInput instanceof HTMLInputElement ? fileInput.files?.item(0) : null;
+    const companyId = companyInput instanceof HTMLSelectElement ? companyInput.value : "";
+    const category = categoryInput instanceof HTMLSelectElement ? categoryInput.value : "";
+    if (!file) {
+      setState({ status: "error", message: "Choose a file before uploading." });
+      return;
+    }
+    setPending(true);
+    setState(initialState);
+    const prepared = await prepareWorkspaceFileUploadAction({
+      companyId: companyId || undefined,
+      originalFilename: file.name,
+      mimeType: file.type,
+      category,
+      sizeBytes: file.size,
+    });
+    if (!prepared.uploadUrl || !prepared.ticket) {
+      setPending(false);
+      setState({ status: "error", message: prepared.error ?? "The file could not be prepared for private upload." });
+      return;
+    }
+    try {
+      const response = await fetch(prepared.uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "content-type": file.type, "x-upsert": "false" },
+      });
+      if (!response.ok) throw new Error("Private upload failed.");
+      const completed = await completeWorkspaceFileUploadAction(prepared.ticket);
+      setState(completed);
+      if (completed.status === "success") router.refresh();
+    } catch {
+      await abortDirectUploadAction(prepared.ticket);
+      setState({ status: "error", message: "The file could not be uploaded safely. Please try again." });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return <form className="control-plane grid gap-3 rounded-lg p-4 sm:grid-cols-[minmax(0,1fr)_10rem_10rem_auto] sm:items-end" onSubmit={(event) => void submit(event)}><label className="grid gap-1 text-caption font-semibold text-neutral-300">Private file<input accept=".pdf,.csv,.xlsx" className="min-h-10 text-caption text-neutral-300" name="file" required type="file" /></label><label className="grid gap-1 text-caption font-semibold text-neutral-300">Company<select className="min-h-10 rounded-md border border-border bg-background px-3 text-small text-white" name="companyId"><option value="">Workspace file</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label><label className="grid gap-1 text-caption font-semibold text-neutral-300">Category<select className="min-h-10 rounded-md border border-border bg-background px-3 text-small text-white" name="category"><option value="source_document">Source document</option><option value="financial_input">Financial input</option><option value="import">Import</option><option value="report">Report</option></select></label><Button disabled={pending} type="submit">{pending ? <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Upload aria-hidden="true" className="h-4 w-4" />}Upload</Button><p className="sm:col-span-full text-caption text-neutral-400">Private PDF, CSV or XLSX only. Maximum 20 MiB.</p><div className="sm:col-span-full"><ActionMessage state={state} /></div></form>;
 }
 
 export function FileActions({ fileId }: { fileId: string }) {

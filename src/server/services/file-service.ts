@@ -109,6 +109,12 @@ export class FileService {
     }
     if (ticket.companyId) await this.authorization.requireCompanyAccess(actorUserId, workspaceId, ticket.companyId, "manage-files");
 
+    // Completing a signed upload is safe to retry after a network interruption.
+    // A prior completion owns this generated key, so it must never trigger cleanup
+    // of the already-persisted private object.
+    const existing = await this.repository.findActiveFileByStorageKey(workspaceId, ticket.storageKey);
+    if (existing) return existing;
+
     const storage = this.requireStorage();
     let body: Uint8Array;
     try {
@@ -137,6 +143,10 @@ export class FileService {
       await this.repository.recordActivity({ workspaceId, userId: actorUserId, companyId: ticket.companyId, eventType: "file.uploaded", entityType: "file", entityId: file.id });
       return file;
     } catch (error) {
+      // A concurrent retry may lose the unique-key race after the preflight check.
+      // Treat the persisted winner as the idempotent result rather than deleting it.
+      const completed = await this.repository.findActiveFileByStorageKey(workspaceId, ticket.storageKey);
+      if (completed) return completed;
       await storage.delete(ticket.storageKey).catch(() => undefined);
       throw error;
     }
@@ -156,7 +166,11 @@ export class FileService {
     if (!z.string().uuid().safeParse(fileId).success) throw new AppError("VALIDATION_ERROR", "A valid file identifier is required.");
     const file = await this.repository.findFileForWorkspace(workspaceId, fileId);
     if (!file) throw new AppError("NOT_FOUND", "The requested file is not available in this workspace.");
-    return this.requireStorage().getSignedUrl(file.storageKey, 60 * 5);
+    const storage = this.requireStorage();
+    if (!(await storage.exists(file.storageKey))) {
+      throw new AppError("STORAGE_ERROR", "The private file is no longer available.");
+    }
+    return storage.getSignedUrl(file.storageKey, 60 * 5);
   }
 
   async downloadForProcessing(actorUserId: string, workspaceId: string, fileId: string) {

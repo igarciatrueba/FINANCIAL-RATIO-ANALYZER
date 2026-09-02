@@ -114,6 +114,28 @@ describe("private file persistence", () => {
     expect(await fixture.storage.exists(ticket.storageKey)).toBe(false);
   }, 20_000);
 
+  it("makes direct-upload completion idempotent without deleting the finalized private object on ticket replay", async () => {
+    vi.stubEnv("UPLOAD_TICKET_SECRET", "test-secret-with-adequate-length");
+    const fixture = await createFixture();
+    const service = new FileService(fixture.repository, fixture.storage);
+    const body = new Uint8Array([1, 2, 3]);
+    const prepared = await service.prepareDirectUpload(fixture.owner.id, fixture.workspace.id, {
+      originalFilename: "financial-source.pdf",
+      mimeType: "application/pdf",
+      category: "source_document",
+      sizeBytes: body.byteLength,
+    });
+    const ticket = readDirectUploadTicket(prepared.ticket);
+    fixture.storage.objects.set(ticket.storageKey, body);
+
+    const first = await service.completeDirectUpload(fixture.owner.id, fixture.workspace.id, prepared.ticket);
+    const replay = await service.completeDirectUpload(fixture.owner.id, fixture.workspace.id, prepared.ticket);
+
+    expect(replay.id).toBe(first.id);
+    expect(await fixture.storage.exists(ticket.storageKey)).toBe(true);
+    expect((await service.list(fixture.owner.id, fixture.workspace.id, { limit: 10 })).items).toHaveLength(1);
+  }, 20_000);
+
   it("uses scoped generated keys and denies a foreign workspace file lookup", async () => {
     const fixture = await createFixture();
     const service = new FileService(fixture.repository, fixture.storage);
@@ -161,5 +183,22 @@ describe("private file persistence", () => {
     await expect(service.getSignedUrl(fixture.owner.id, fixture.workspace.id, file.id)).rejects.toMatchObject({ code: "NOT_FOUND" } satisfies Partial<AppError>);
     expect((await service.list(fixture.owner.id, fixture.workspace.id, { limit: 10 })).items).toHaveLength(0);
     expect((await activity.list(fixture.owner.id, fixture.workspace.id, { limit: 10 })).items.map((event) => event.eventType)).toContain("file.deleted");
+  }, 20_000);
+
+  it("fails safely when active metadata references an unavailable private object", async () => {
+    const fixture = await createFixture();
+    const service = new FileService(fixture.repository, fixture.storage);
+    const file = await service.upload(fixture.owner.id, fixture.workspace.id, {
+      originalFilename: "financial-source.pdf",
+      mimeType: "application/pdf",
+      category: "source_document",
+      body: new Uint8Array([1, 2, 3]),
+    });
+    await fixture.storage.delete(file.storageKey);
+
+    await expect(service.getSignedUrl(fixture.owner.id, fixture.workspace.id, file.id)).rejects.toMatchObject({
+      code: "STORAGE_ERROR",
+      safeMessage: "The private file is no longer available.",
+    });
   }, 20_000);
 });

@@ -2,10 +2,12 @@ import type { Metadata, Viewport } from "next";
 
 import { AccountSessionProvider } from "@/features/accounts/auth-session-provider";
 import { BRAND } from "@/lib/brand";
+import { siteUrl } from "@/lib/site-url";
 
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: siteUrl,
   title: {
     default: BRAND.name,
     template: `%s | ${BRAND.name}`,
@@ -13,6 +15,7 @@ export const metadata: Metadata = {
   description:
     "Interactive financial health assessment and scenario-analysis platform for simplified corporate financial statements.",
   applicationName: BRAND.name,
+  alternates: { canonical: "/" },
   authors: [{ name: "Iker García Trueba" }],
   creator: "Iker García Trueba",
   openGraph: {

@@ -9,12 +9,14 @@ import { BackendRepository } from "@/server/repositories/backend-repository";
 import { SupabaseStorageService } from "@/server/storage/supabase-storage-service";
 import { FileService } from "@/server/services/file-service";
 import { DocumentExtractionService } from "@/server/services/document-extraction-service";
+import { logSafeServerFailure } from "@/server/observability/safe-server-log";
 import { validatePdfUpload } from "@/server/document-extraction/validate-pdf-upload";
 import type { AnnualReportReviewDraft, ExtractionReviewCandidate, ExtractionReviewField } from "@/features/annual-report-ingestion/review-types";
 
 export type WorkspaceActionState = { status: "idle" | "success" | "error"; message?: string };
 
 function actionFailure(error: unknown): WorkspaceActionState {
+  logSafeServerFailure("workspace_action_failed", error);
   if (error instanceof AppError) return { status: "error", message: error.safeMessage };
   return { status: "error", message: "That workspace action could not be completed. Please try again." };
 }

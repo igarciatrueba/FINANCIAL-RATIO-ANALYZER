@@ -498,6 +498,15 @@ export class BackendRepository {
     return file ?? null;
   }
 
+  async findActiveFileByStorageKey(workspaceId: string, storageKey: string) {
+    const [file] = await this.database.select().from(files).where(and(
+      eq(files.workspaceId, workspaceId),
+      eq(files.storageKey, storageKey),
+      isNull(files.deletedAt),
+    )).limit(1);
+    return file ?? null;
+  }
+
   async listFilesForWorkspace(workspaceId: string, request: PageRequest, companyId?: string) {
     const where = [eq(files.workspaceId, workspaceId), isNull(files.deletedAt)];
     if (companyId) where.push(eq(files.companyId, companyId));

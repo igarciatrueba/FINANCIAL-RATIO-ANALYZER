@@ -8,6 +8,7 @@ import {
   type AnnualReportExtractionPipeline,
 } from "@/server/document-extraction/annual-report-extraction-pipeline";
 import type { StorageService } from "@/server/storage/types";
+import { logSafeServerFailure } from "@/server/observability/safe-server-log";
 import { z } from "zod";
 
 const canonicalFieldKeySchema = z.enum([
@@ -146,6 +147,7 @@ export class DocumentExtractionService {
       return this.repository.getDocumentExtractionRunForWorkspace(workspaceId, run.id);
     } catch (error) {
       const safeError = error instanceof AppError ? error : new AppError("ANALYSIS_FAILED", "The annual report could not be extracted safely.");
+      logSafeServerFailure("annual_report_extraction_failed", safeError);
       await this.repository.failDocumentExtractionRun(workspaceId, run.id, safeError.code, safeError.safeMessage);
       // A rejected source cannot be used as evidence. Remove its private object and
       // revoke application access even when object-storage cleanup is unavailable.

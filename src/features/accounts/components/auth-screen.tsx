@@ -8,6 +8,7 @@ import { ArrowRight, CheckCircle2, KeyRound, LoaderCircle } from "lucide-react";
 import { EquiverseLogo } from "@/components/brand/equiverse-logo";
 import { Button } from "@/components/ui/button";
 import { authErrorMessage } from "@/features/accounts/lib/auth-error-message";
+import { getSafeAuthReturnPath } from "@/features/accounts/lib/auth-return-path";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser-client";
 
 type AuthMode = "login" | "signup" | "forgot-password" | "reset-password";
@@ -19,10 +20,6 @@ const content: Record<AuthMode, { eyebrow: string; title: string; description: s
   "reset-password": { eyebrow: "Password recovery", title: "Choose a new password.", description: "Your password is handled by the configured Supabase provider.", submit: "Update password" },
 };
 
-function safeNext(value: string | null) {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : "/workspace";
-}
-
 export function AuthScreen({ mode }: { mode: AuthMode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -30,7 +27,7 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
   const [notice, setNotice] = useState(searchParams.get("verified") === "1" ? "Your email is verified. You can sign in now." : null);
   const [pending, setPending] = useState(false);
   const copy = content[mode];
-  const next = safeNext(searchParams.get("next"));
+  const next = getSafeAuthReturnPath(searchParams.get("next"));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

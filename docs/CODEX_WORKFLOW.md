@@ -535,6 +535,16 @@ The objective is to build a production-quality financial application through an 
 
 ---
 
+# 21. Future Scalability Reference
+
+High-traffic scalability and resilience roadmap:
+
+`docs/backend/HIGH_TRAFFIC_SCALING_ROADMAP.md`
+
+This document is the canonical future reference for scaling EQUIVERSE beyond controlled beta usage. Consult it before substantial work involving scalability, concurrency, rate limiting, queues or background jobs, database scaling, caching, observability, resilience, load testing, multi-region architecture, or high-traffic production hardening. Do not implement roadmap items unless explicitly requested.
+
+---
+
 # Revision History
 
 Version

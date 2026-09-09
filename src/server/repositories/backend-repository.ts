@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, lt, max, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, lt, max, or, sql } from "drizzle-orm";
 
 import type { FinancialAnalysisInput, ScenarioAssumptions } from "@/domain";
 import { canonicalInputToStatementRows } from "@/server/datasets/canonical-statement-mapper";
@@ -30,6 +30,7 @@ import { AppError } from "@/server/errors";
 
 export type PageRequest = { cursor?: string; limit: number };
 export type PageResult<T> = { items: T[]; nextCursor: string | null };
+export type AccountDeletionWorkspace = { id: string; ownerUserId: string; memberCount: number };
 
 type AnalysisCursor = { createdAt: Date; id: string };
 
@@ -108,6 +109,46 @@ export class BackendRepository {
       isNull(workspaces.archivedAt),
     )).limit(1);
     return workspace ?? null;
+  }
+
+  async listAccountDeletionWorkspaces(userId: string): Promise<AccountDeletionWorkspace[]> {
+    const memberships = await this.database.select({ workspace: workspaces, membership: workspaceMembers })
+      .from(workspaceMembers)
+      .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
+      .where(and(eq(workspaceMembers.userId, userId), isNull(workspaces.archivedAt)));
+    return Promise.all(memberships.map(async ({ workspace }) => {
+      const [members] = await this.database.select({ value: count() }).from(workspaceMembers).where(eq(workspaceMembers.workspaceId, workspace.id));
+      return { id: workspace.id, ownerUserId: workspace.ownerUserId, memberCount: Number(members?.value ?? 0) };
+    }));
+  }
+
+  async listStorageKeysForWorkspaces(workspaceIds: string[]) {
+    if (!workspaceIds.length) return [];
+    return this.database.select({ storageKey: files.storageKey }).from(files).where(inArray(files.workspaceId, workspaceIds));
+  }
+
+  async deletePersonalAccountData(userId: string, workspaceIds: string[]) {
+    if (!workspaceIds.length) throw new AppError("CONFLICT", "No eligible personal workspace is available for deletion.");
+    return this.database.transaction(async (transaction) => {
+      const scoped = new BackendRepository(transaction as unknown as AppDatabase);
+      const eligible = await scoped.listAccountDeletionWorkspaces(userId);
+      if (eligible.length !== workspaceIds.length || eligible.some((workspace) => workspace.ownerUserId !== userId || workspace.memberCount !== 1 || !workspaceIds.includes(workspace.id))) {
+        throw new AppError("CONFLICT", "Account deletion is unavailable while a shared workspace is connected to this account.");
+      }
+      for (const workspaceId of workspaceIds) {
+        await scoped.database.delete(documentExtractionRuns).where(eq(documentExtractionRuns.workspaceId, workspaceId));
+        await scoped.database.delete(activityEvents).where(eq(activityEvents.workspaceId, workspaceId));
+        await scoped.database.delete(files).where(eq(files.workspaceId, workspaceId));
+        await scoped.database.delete(scenarios).where(eq(scenarios.workspaceId, workspaceId));
+        await scoped.database.delete(analysisRuns).where(eq(analysisRuns.workspaceId, workspaceId));
+        await scoped.database.delete(financialDatasetVersions).where(inArray(financialDatasetVersions.financialDatasetId, scoped.database.select({ id: financialDatasets.id }).from(financialDatasets).innerJoin(companies, eq(financialDatasets.companyId, companies.id)).where(eq(companies.workspaceId, workspaceId))));
+        await scoped.database.delete(financialDatasets).where(inArray(financialDatasets.companyId, scoped.database.select({ id: companies.id }).from(companies).where(eq(companies.workspaceId, workspaceId))));
+        await scoped.database.delete(companies).where(eq(companies.workspaceId, workspaceId));
+        await scoped.database.delete(workspaceMembers).where(eq(workspaceMembers.workspaceId, workspaceId));
+        await scoped.database.delete(workspaces).where(and(eq(workspaces.id, workspaceId), eq(workspaces.ownerUserId, userId)));
+      }
+      await scoped.database.delete(users).where(eq(users.id, userId));
+    });
   }
 
   async archiveWorkspace(workspaceId: string) {

@@ -9,6 +9,8 @@ import { BackendRepository } from "@/server/repositories/backend-repository";
 import { SupabaseStorageService } from "@/server/storage/supabase-storage-service";
 import { FileService } from "@/server/services/file-service";
 import { DocumentExtractionService } from "@/server/services/document-extraction-service";
+import { AccountDeletionService } from "@/server/services/account-deletion-service";
+import { SupabaseAuthAdmin } from "@/server/auth/supabase-auth-admin";
 import { logSafeServerFailure } from "@/server/observability/safe-server-log";
 import { validatePdfUpload } from "@/server/document-extraction/validate-pdf-upload";
 import type { AnnualReportReviewDraft, ExtractionReviewCandidate, ExtractionReviewField } from "@/features/annual-report-ingestion/review-types";
@@ -35,6 +37,17 @@ function privateFileService(repository: BackendRepository) {
 
 function privateDocumentExtractionService(repository: BackendRepository) {
   return new DocumentExtractionService(repository, new SupabaseStorageService());
+}
+
+export async function deleteCurrentAccountAction(_previous: WorkspaceActionState, formData: FormData): Promise<WorkspaceActionState> {
+  if (formData.get("confirmation") !== "DELETE") return { status: "error", message: "Type DELETE to confirm permanent account deletion." };
+  try {
+    const { user, repository } = await resolveAccountContext();
+    await new AccountDeletionService(repository, new SupabaseStorageService(), new SupabaseAuthAdmin()).deleteAccount({ userId: user.id, providerUserId: user.authProviderUserId });
+    return { status: "success", message: "Your account and personal workspace data were deleted." };
+  } catch (error) {
+    return actionFailure(error);
+  }
 }
 
 function toReviewDraft(extraction: NonNullable<Awaited<ReturnType<BackendRepository["getDocumentExtractionRunForWorkspace"]>>>, sourceFileName: string): AnnualReportReviewDraft {

@@ -26,17 +26,18 @@ export async function getSupabaseAuthenticatedIdentity(): Promise<AuthenticatedI
       },
     },
   });
-  const { data, error } = await client.auth.getClaims();
+  // A signed JWT may outlive account deletion. Verify the user with Auth before bootstrap.
+  const { data, error } = await client.auth.getUser();
 
-  if (error || !data?.claims?.sub || typeof data.claims.email !== "string") {
+  if (error || !data?.user?.id || typeof data.user.email !== "string") {
     return null;
   }
 
   return {
     provider: "supabase",
-    providerUserId: data.claims.sub,
-    email: data.claims.email.toLowerCase(),
-    displayName: typeof data.claims.user_metadata?.display_name === "string" ? data.claims.user_metadata.display_name : undefined,
-    avatarUrl: typeof data.claims.user_metadata?.avatar_url === "string" ? data.claims.user_metadata.avatar_url : undefined,
+    providerUserId: data.user.id,
+    email: data.user.email.toLowerCase(),
+    displayName: typeof data.user.user_metadata?.display_name === "string" ? data.user.user_metadata.display_name : undefined,
+    avatarUrl: typeof data.user.user_metadata?.avatar_url === "string" ? data.user.user_metadata.avatar_url : undefined,
   };
 }

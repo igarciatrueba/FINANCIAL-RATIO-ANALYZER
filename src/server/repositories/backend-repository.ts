@@ -115,7 +115,7 @@ export class BackendRepository {
     const memberships = await this.database.select({ workspace: workspaces, membership: workspaceMembers })
       .from(workspaceMembers)
       .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
-      .where(and(eq(workspaceMembers.userId, userId), isNull(workspaces.archivedAt)));
+      .where(eq(workspaceMembers.userId, userId));
     return Promise.all(memberships.map(async ({ workspace }) => {
       const [members] = await this.database.select({ value: count() }).from(workspaceMembers).where(eq(workspaceMembers.workspaceId, workspace.id));
       return { id: workspace.id, ownerUserId: workspace.ownerUserId, memberCount: Number(members?.value ?? 0) };

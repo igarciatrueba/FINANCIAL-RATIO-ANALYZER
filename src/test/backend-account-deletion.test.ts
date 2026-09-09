@@ -57,4 +57,15 @@ describe("account deletion", () => {
     expect(value.storage.keys.size).toBe(1);
     expect(value.auth.deleteUser).not.toHaveBeenCalled();
   }, 20_000);
+
+  it("blocks an archived shared workspace before deleting personal files", async () => {
+    const value = await fixture();
+    const shared = await value.workspaces.createPersonalWorkspace(value.other.id, "Shared workspace");
+    await value.workspaces.addMember(value.other.id, shared.id, value.owner.id, "member");
+    await value.repository.archiveWorkspace(shared.id);
+    const service = new AccountDeletionService(value.repository, value.storage, value.auth);
+    await expect(service.deleteAccount({ userId: value.owner.id, providerUserId: "owner" })).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(value.storage.keys.size).toBe(1);
+    expect(value.auth.deleteUser).not.toHaveBeenCalled();
+  }, 20_000);
 });

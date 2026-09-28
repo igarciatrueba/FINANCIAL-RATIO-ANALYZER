@@ -36,7 +36,7 @@ export function AnalysisCommandBar({ viewModel }: AnalysisCommandBarProps) {
         </div>
 
         <div className="analysis-action-group flex flex-col gap-3 sm:flex-row sm:flex-wrap xl:shrink-0">
-          <PrintReportButton />
+          <PrintReportButton viewModel={viewModel} />
           <Button asChild>
             <Link aria-label="Edit financials in the financial input workflow" href={viewModel.routes.editInput}>
               <FilePenLine aria-hidden="true" className="h-5 w-5" />
